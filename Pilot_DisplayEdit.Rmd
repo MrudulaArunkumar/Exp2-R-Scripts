@@ -1,0 +1,431 @@
+---
+title: "Exp2_pilotdata_DisplayEdit"
+author: "Mrudula"
+date: "19/10/2020"
+output: html_document
+---
+
+This is the Pilot Data Analysis collected from the hiwis for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
+
+Loading the libraries and the relevant data files
+
+```{r library and files, include=FALSE, message=FALSE}
+sessionInfo()#saving the R session
+
+library(tidyverse)
+library(plyr)
+library(ez)
+library(schoRsch)
+library(knitr)
+library(pander)
+library(rmarkdown)
+
+#clearing environment
+rm(list = ls())
+
+#setting up working directory globally only needed when using it first time
+library(here)
+set_here()
+
+#loading pilot
+d1 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/1_pilotv2.csv")
+d2 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/2_pilotv2.csv")
+d1 <- d1 %>% select(-consentkey.keys,-consentkey.rt,-beginexp.rt,-beginexp.keys,-checkresp.corr,-checkresp.rt,-checkresp.keys,
+         -Attention.ran,-Attention.thisIndex,-Attention.thisN,-Attention.thisTrialN,-Attention.thisRepN,
+         -Question,-Solution,-gotoPrac.rt,-gotoPrac.keys,-InstRep.ran,-InstRep.thisIndex,-InstRep.thisN,-InstRep.thisTrialN,-InstRep.thisRepN,
+         -Prac_start.rt,-Prac_start.keys,-prctrials.ran,-prctrials.thisIndex,-prctrials.thisN,-prctrials.thisRepN,-prctrials.thisRepN,
+         -pracend.keys,-pracend.rt,-PracRepeat.ran,-PracRepeat.thisIndex,-PracRepeat.thisN,-PracRepeat.thisRepN,-PracRepeat.thisTrialN)
+
+d1 <- d1 %>% select(-firstlearntrials.ran,-firstlearntrials.thisIndex,-firstlearntrials.thisRepN,-firstlearntrials.thisTrialN,
+         -brkcontinue.keys,-Exptrials.ran,-Exptrials.thisIndex,-Exptrials.thisTrialN, - Exptrials.thisRepN,
+         -afterpause.keys,-blocks.ran,-blocks.thisIndex,-blocks.thisTrialN,-blocks.thisRepN,
+         -CAproceed.rt,-CAproceed.keys,-ContAwareness.ran,-ContAwareness.thisIndex,-ContAwareness.thisN,-ContAwareness.thisTrialN,-ContAwareness.thisRepN,
+         -Questionnaire.ran,-Questionnaire.thisIndex,-Questionnaire.thisTrialN,-Questionnaire.thisRepN,-todebrief.keys,-ExpExit.keys)
+
+
+d2 <- d2 %>% select(-consentkey.keys,-consentkey.rt,-beginexp.rt,-beginexp.keys,-checkresp.corr,-checkresp.rt,-checkresp.keys,
+         -Attention.ran,-Attention.thisIndex,-Attention.thisN,-Attention.thisTrialN,-Attention.thisRepN,
+         -Question,-Solution,-gotoPrac.rt,-gotoPrac.keys,-InstRep.ran,-InstRep.thisIndex,-InstRep.thisN,-InstRep.thisTrialN,-InstRep.thisRepN,
+         -Prac_start.rt,-Prac_start.keys,-prctrials.ran,-prctrials.thisIndex,-prctrials.thisN,-prctrials.thisRepN,-prctrials.thisRepN,
+         -pracend.keys,-pracend.rt,-PracRepeat.ran,-PracRepeat.thisIndex,-PracRepeat.thisN,-PracRepeat.thisRepN,-PracRepeat.thisTrialN)
+
+d2 <- d2 %>% select(-firstlearntrials.ran,-firstlearntrials.thisIndex,-firstlearntrials.thisRepN,-firstlearntrials.thisTrialN,
+         -brkcontinue.keys,-Exptrials.ran,-Exptrials.thisIndex,-Exptrials.thisTrialN, - Exptrials.thisRepN,
+         -afterpause.keys,-blocks.ran,-blocks.thisIndex,-blocks.thisTrialN,-blocks.thisRepN,
+         -CAproceed.rt,-CAproceed.keys,-ContAwareness.ran,-ContAwareness.thisIndex,-ContAwareness.thisN,-ContAwareness.thisTrialN,-ContAwareness.thisRepN,
+         -Questionnaire.ran,-Questionnaire.thisIndex,-Questionnaire.thisTrialN,-Questionnaire.thisRepN,-todebrief.keys,-ExpExit.keys)
+
+d2 <- d2 %>% select(-preResp.rt)
+
+#d3 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/3_ww.csv")
+#d4 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/4_ww.csv")
+
+Exp2_displayEdit <- rbind(d1,d2)
+
+#write.csv(Exp2_displayEdit, file = "pilot_withWord.csv")
+attach(Exp2_displayEdit)
+
+
+
+```
+
+Checking the balance in design:
+
+*29 refers to rows containing NA*
+
+```{r design Check}
+#blockcount
+table(Block)
+table(Block,Condition) #29 refers to the NA rows
+table(Block,Condition, Validity)
+
+#position
+table(PositionD)
+table(PositionT)
+table(Saliency)
+
+detach(Exp2_displayEdit)
+```
+
+Cleaning data
+
+```{r cleaning, include=FALSE}
+
+Exp2_displayEdit <- Exp2_displayEdit %>%
+  select(-consentkey.keys,-consentkey.rt,-beginexp.rt,-beginexp.keys,-checkresp.corr,-checkresp.rt,-checkresp.keys,
+         -Attention.ran,-Attention.thisIndex,-Attention.thisN,-Attention.thisTrialN,-Attention.thisRepN,
+         -Question,-Solution,-gotoPrac.rt,-gotoPrac.keys,-InstRep.ran,-InstRep.thisIndex,-InstRep.thisN,-InstRep.thisTrialN,-InstRep.thisRepN,
+         -Prac_start.rt,-Prac_start.keys,-prctrials.ran,-prctrials.thisIndex,-prctrials.thisN,-prctrials.thisRepN,-prctrials.thisRepN,
+         -pracend.keys,-pracend.rt,-PracRepeat.ran,-PracRepeat.thisIndex,-PracRepeat.thisN,-PracRepeat.thisRepN,-PracRepeat.thisTrialN)
+
+#removing unwanted columns in the experimental side 
+Exp2_displayEdit <- Exp2_displayEdit %>%
+  select(-firstlearntrials.ran,-firstlearntrials.thisIndex,-firstlearntrials.thisRepN,-firstlearntrials.thisTrialN,
+         -brkcontinue.keys,-Exptrials.ran,-Exptrials.thisIndex,-Exptrials.thisTrialN, - Exptrials.thisRepN,
+         -afterpause.keys,-blocks.ran,-blocks.thisIndex,-blocks.thisTrialN,-blocks.thisRepN,
+         -CAproceed.rt,-CAproceed.keys,-ContAwareness.ran,-ContAwareness.thisIndex,-ContAwareness.thisN,-ContAwareness.thisTrialN,-ContAwareness.thisRepN,
+         -Questionnaire.ran,-Questionnaire.thisIndex,-Questionnaire.thisTrialN,-Questionnaire.thisRepN,-todebrief.keys,-ExpExit.keys)
+
+#assigning the vaues of blockcount and screenbackground for every row
+Exp2_displayEdit <- Exp2_displayEdit%>%group_by(participant)%>%fill(Screen_bg,.direction = "down")
+
+Exp2_displayEdit <- Exp2_displayEdit %>% group_by(participant)%>%fill(blocks.thisN,.direction = "up")
+
+Exp2_displayEdit <- rename(Exp2_displayEdit, c("blocks.thisN" = "BlockCount"))
+
+Exp2_CA <- Exp2_displayEdit %>%
+  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
+
+#adjusting RT
+Exp2_displayEdit <- separate(Exp2_displayEdit, col = ResponseKey.rt, into = c("RT_Trials", "RT_secondary"), sep = ',')
+Exp2_displayEdit$RT_Trials <- Exp2_displayEdit$RT_Trials%>%
+  str_replace_all("\\[|\\]","")%>%
+  as.double(Exp2_displayEdit$RT_Trials)
+Exp2_displayEdit$RT_Trials <- 1000*(Exp2_displayEdit$RT_Trials)
+Exp2_displayEdit$PreTargetDisplayTime <- 1000*(Exp2_displayEdit$PreTargetDisplayTime)
+
+Exp2_displayEdit <- Exp2_displayEdit%>%drop_na(RT_Trials)
+
+Exp2_displayEdit$ACC_trials <- Exp2_displayEdit$ResponseKey.corr
+Exp2_displayEdit$ErrorRate <- 1 - Exp2_displayEdit$ACC_trials
+
+```
+
+Summary of the overall RT
+
+```{r descriptive, echo=FALSE}
+pander(summary(Exp2_displayEdit$RT_Trials), style = 'rmarkdown',caption = 'Mean RT')
+pander(table(Exp2_displayEdit$ACC_trials),style = 'rmarkdown',caption = "Accuracy")
+
+```
+
+Removing outliers
+
+```{r outliersfarouts, echo=FALSE}
+
+Exp2_displayEdit$RT_Trials[Exp2_displayEdit$ACC_trials==0] <- NA
+
+
+#creating function to remove the outliers and farouts
+computeTukeys <- function(x){
+  P25 <- quantile(x$RT_Trials, .25, na.rm = TRUE, type = 6) #type = 6 -> used in SPSS
+  P75 <- quantile(x$RT_Trials, .75, na.rm = TRUE, type = 6)
+  x$Outlier <- P75 + 1.5*(P75 - P25)
+  x$Farouts <- P75 + 3.0*(P75 - P25)
+  return(x)
+}
+
+
+#identifying the outliers and farouts at individual level
+Exp2_displayEdit <- ddply(Exp2_displayEdit, .(participant), computeTukeys)
+
+#creating new column with RT trials after removing outliers/farouts
+Exp2_displayEdit$RT_ifo <- Exp2_displayEdit$RT_Trials
+Exp2_displayEdit$RT_io <- Exp2_displayEdit$RT_Trials
+Exp2_displayEdit$RT_ifo[Exp2_displayEdit$RT_ifo > Exp2_displayEdit$Farouts|Exp2_displayEdit$RT_ifo < 300] <- NA
+Exp2_displayEdit$RT_io[Exp2_displayEdit$RT_io > Exp2_displayEdit$Outlier|Exp2_displayEdit$RT_io < 300] <- NA
+
+pander(summary(Exp2_displayEdit$RT_ifo), style = 'rmarkdown', caption = "Summary of RT after removing Farouts")
+pander(summary(Exp2_displayEdit$RT_io), style = 'rmarkdown', caption = "Summary of RT after removing Outliers")
+
+
+```
+
+Split the data as learn and test trials
+
+```{r}
+Exp2learn_displayEdit <- Exp2_displayEdit %>%
+  filter(Condition == "learn")
+
+Exp2test_displayEdit <- Exp2_displayEdit %>%
+  filter(Condition == "test")
+
+Exp2learn_displayEdit<- Exp2learn_displayEdit%>%
+  mutate(PositionMatch = ifelse(as.character(PositionD)==as.character(PositionT),"same","different"))
+
+```
+
+## Analysis for learn trials
+
+-   Farouts
+
+```{r learn}
+Exp2learn_displayEdit <- Exp2learn_displayEdit %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
+
+#aggregate
+Exp2agg_l_de_fo <- aggregate(data = Exp2learn_displayEdit,RT_ifo~participant+Validity+Saliency,mean)
+
+
+t.test(RT_ifo~Validity, data = Exp2agg_l_de_fo)
+
+```
+
+-   Outliers
+
+    ```{r learno}
+
+    #aggregate
+    Exp2agg_l_de_o <- aggregate(data = Exp2learn_displayEdit,RT_io~participant+Validity+Saliency,mean)
+
+    t.test(RT_io~Validity, data = Exp2agg_l_de_o)
+
+    ```
+
+-   Error Rate
+
+```{r error}
+
+Exp2agg_l_de_ER <- aggregate(data = Exp2learn_displayEdit,ErrorRate~participant+Validity+Saliency,mean)
+
+t.test(ErrorRate~Validity, data = Exp2agg_l_de_ER)
+```
+
+## Analysis of Test Trials
+
+-   Farouts
+
+    The valid trials have a larger difference for non salient words.
+
+    Larger than 1 F value for the main effect of Validity.
+
+```{r test}
+Exp2test_displayEdit <- Exp2test_displayEdit %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
+
+#aggregate
+Exp2agg_t_de_fo <- aggregate(data = Exp2test_displayEdit,RT_ifo~participant+Validity+Saliency,mean)
+
+aggmean_t_fo <- ddply(Exp2agg_t_de_fo, .(participant,Validity), summarize, RTmean=mean(RT_ifo), SD = sd(RT_ifo))
+salmean_t_fo <- ddply(Exp2agg_t_de_fo, .(participant,Saliency), summarize, RTmean=mean(RT_ifo), SD = sd(RT_ifo))
+
+kable(aggmean_t_fo, format = "html", caption = "Summary means of valid vs invalid across participant")
+kable(salmean_t_fo, format = "html", caption = "Summary means of Salient vs non salient across participant")
+
+anova_t_fo <- ezANOVA(data = Exp2agg_t_de_fo,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Saliency,Validity),
+        detailed = TRUE)
+
+pander(anova_t_fo, style = 'rmarkdown', caption = "ANOVA results: Farouts excluded for test trials")
+
+ezPlot(data = Exp2agg_t_ww_fo,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Saliency,Validity),
+        split = Validity, x=Saliency, do_bars = FALSE)
+```
+
+-   Outliers
+
+    Quite a difference from the farouts
+
+```{r}
+Exp2agg_t_de_o <- aggregate(data = Exp2test_displayEdit,RT_io~participant+Validity+Saliency,mean)
+means_t_o <- aggregate(data=Exp2agg_t_de_o,RT_io~participant+Validity,mean)
+salmeans_t_o <- aggregate(data=Exp2agg_t_de_o,RT_io~participant+Saliency,mean)
+
+
+kable(means_t_o, format = "html", caption = "Summary means of valid vs invalid across participant")
+kable(salmeans_t_o, format = "html", caption = "Summary means of Salient vs non salient across participant")
+
+
+anova_t_o <- ezANOVA(data = Exp2agg_t_de_o,
+            dv = RT_io,
+            wid = participant,
+            within = .(Saliency,Validity),
+            detailed = TRUE)
+pander(anova_t_o, style = 'rmarkdown', caption = "ANOVA results: Outliers excluded for test trials")
+ 
+ezPlot(data = Exp2agg_t_de_o,
+        dv = RT_io,
+        wid = participant,
+        within = .(Saliency,Validity),
+        split = Validity, x=Saliency, do_bars = FALSE)
+
+```
+
+-   Error Rate
+
+    The interaction between Saliency and Validity is significant
+
+```{r}
+
+Exp2agg_t_de_ER <- aggregate(data = Exp2test_displayEdit,ErrorRate~participant+Validity+Saliency,mean)
+
+Exp2agg_t_de_ER$ErrorRate <- 100 * Exp2agg_t_de_ER$ErrorRate
+
+anova_t_ER <- ezANOVA(data = Exp2agg_t_de_ER,
+        dv = ErrorRate,
+        wid = participant,
+        within = .(Saliency,Validity),
+        detailed = TRUE)
+
+pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in test trials")
+
+
+```
+### Exploratory: Adding the factor of Position
+
+#### Analysis of learn trials - Position
+-   Farouts
+
+```{r learnp}
+Exp2learn_displayEdit <- Exp2learn_displayEdit %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,PositionMatch,everything())
+
+#aggregate
+Exp2agg_lp_de_fo <- aggregate(data = Exp2learn_displayEdit,RT_ifo~participant+Validity+PositionMatch,mean)
+
+
+lp_anova <- ezANOVA(data = Exp2agg_lp_de_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+pander(lp_anova,style = 'rmarkdown')
+
+ezPlot(data = Exp2agg_lp_de_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+       split = Validity, x=PositionMatch, do_bars = FALSE)
+
+```
+
+-   Outliers
+
+    ```{r learno}
+Exp2agg_lp_de_o <- aggregate(data = Exp2learn_displayEdit,RT_io~participant+Validity+PositionMatch,mean)
+
+
+lp_anova_o <- ezANOVA(data = Exp2agg_lp_de_o,
+        dv=RT_io,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+pander(lp_anova_o,style = 'rmarkdown')
+
+ezPlot(data = Exp2agg_lp_de_o,
+        dv=RT_io,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+       split = Validity, x=PositionMatch, do_bars = FALSE)
+
+    ```
+
+-   Error Rate
+
+```{r error}
+
+Exp2agg_lp_de_ER <- aggregate(data = Exp2learn_displayEdit,ErrorRate~participant+Validity+PositionMatch,mean)
+
+lp_anova_er <- ezANOVA(data = Exp2agg_lp_de_ER,
+        dv=ErrorRate,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+pander(lp_anova_er,style = 'rmarkdown')
+```
+
+#### Analysis of test trials - Position
+-   Farouts
+
+```{r learnp}
+Exp2test_displayEdit <- Exp2test_displayEdit %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
+
+#aggregate
+Exp2agg_tp_de_fo <- aggregate(data = Exp2test_displayEdit,RT_ifo~participant+Validity+Saliency+PositionT,mean)
+
+
+tp_anova <- ezANOVA(data = Exp2agg_tp_de_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionT),
+        detailed = TRUE)
+pander(tp_anova,style = 'rmarkdown')
+
+ezPlot(data = Exp2agg_tp_de_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionT),
+       split = Validity, x=PositionT, do_bars = FALSE)
+
+```
+
+-   Outliers
+
+    ```{r learno}
+Exp2agg_tp_de_o <- aggregate(data = Exp2test_displayEdit,RT_io~participant+Validity+PositionT,mean)
+
+
+tp_anova_o <- ezANOVA(data = Exp2agg_tp_de_o,
+        dv=RT_io,
+        wid = participant,
+        within = .(Validity, PositionT),
+        detailed = TRUE)
+pander(tp_anova_o,style = 'rmarkdown')
+
+ezPlot(data = Exp2agg_tp_de_o,
+        dv=RT_io,
+        wid = participant,
+        within = .(Validity, PositionT),
+       split = Validity, x=PositionT, do_bars = FALSE)
+
+    ```
+
+-   Error Rate
+
+```{r error}
+
+Exp2agg_tp_de_ER <- aggregate(data = Exp2test_displayEdit,ErrorRate~participant+Validity+PositionT,mean)
+
+tp_anova_er <- ezANOVA(data = Exp2agg_tp_de_ER,
+        dv=ErrorRate,
+        wid = participant,
+        within = .(Validity, PositionT),
+        detailed = TRUE)
+pander(tp_anova_er,style = 'rmarkdown')
+```

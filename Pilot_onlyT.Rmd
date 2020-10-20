@@ -28,14 +28,16 @@ rm(list = ls())
 #set_here()
 
 #loading pilot
-d1 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/1_ot.csv")
-d2 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/2_ot.csv")
-d3 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/3_ot.csv")
-d4 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/4_ot.csv")
+# d1 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/1_ot.csv")
+# d2 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/2_ot.csv")
+# d3 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/3_ot.csv")
+# d4 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/4_ot.csv")
 
-Exp2_onlyT <- rbind(d1,d2,d3,d4)
+#Exp2_onlyT <- rbind(d1,d2,d3,d4)
 
 #write.csv(Exp2_onlyT, file="Pilot_onlyT.csv")
+
+Exp2_onlyT <- read.csv("Pilot_onlyT.csv")
 attach(Exp2_onlyT)
 
 
@@ -160,6 +162,8 @@ Exp2learn_onlyT<- Exp2learn_onlyT%>%
 
 ## Analysis for learn trials
 
+No difference between invalid and valid trials
+
 -   Farouts
 
 ```{r learn}
@@ -196,14 +200,14 @@ t.test(RT_io~Validity, data = Exp2agg_l_ot_o)
 
 ```{r error}
 
-Exp2agg_l_ot_ER <- aggregate(data = Exp2learn_onlyT,ErrorRate~participant+Validity+PositionMatch,mean)
+Exp2agg_l_ot_ER <- aggregate(data = Exp2learn_onlyT,ErrorRate~participant+Validity,mean)
 
 Exp2agg_l_ot_ER$ErrorRate <- 100 * Exp2agg_l_ot_ER$ErrorRate
 
 ezANOVA(data = Exp2agg_l_ot_ER,
         dv=ErrorRate,
         wid = participant,
-        within = .(Validity,PositionMatch),
+        within = .(Validity),
         detailed = TRUE)
 
 
@@ -212,7 +216,7 @@ ezANOVA(data = Exp2agg_l_ot_ER,
 ## Analysis of Test Trials
 
 -   Farouts
-
+No main or interaction effects
 
 ```{r testfo}
 Exp2test_onlyT <- Exp2test_onlyT%>%
@@ -239,17 +243,17 @@ ezPlot(data = Exp2agg_t_ot_fo,
         dv = RT_ifo,
         wid = participant,
         within = .(Saliency,Validity),
-        split = Validity, x=Saliency, col=PositionT, do_bars = FALSE)
+        split = Validity, x=Saliency, do_bars = FALSE)
 ```
 
 -   Outliers
 
-
+No main or interaction effects: SOme participants have slower invalid trials than valid trials and others show opposite trend
 
 ```{r}
 Exp2agg_t_ot_o <- aggregate(data = Exp2test_onlyT,RT_io~participant+Validity+Saliency,mean)
-means_t_o <- aggregate(data=Exp2agg_t_ot_o,RT_io~participant+Validity+PositionT,mean)
-salmeans_t_o <- aggregate(data=Exp2agg_t_ot_o,RT_io~participant+Saliency+PositionT,mean)
+means_t_o <- aggregate(data=Exp2agg_t_ot_o,RT_io~participant+Validity,mean)
+salmeans_t_o <- aggregate(data=Exp2agg_t_ot_o,RT_io~participant+Saliency,mean)
 
 
 kable(means_t_o, format = "html", caption = "Summary means of valid vs invalid across participant")
@@ -267,7 +271,7 @@ ezPlot(data = Exp2agg_t_ot_o,
         dv = RT_io,
         wid = participant,
         within = .(Saliency,Validity),
-        split = Validity, x=Saliency, col = PositionT,do_bars = FALSE)
+        split = Validity, x=Saliency,do_bars = FALSE)
 
 ```
 
@@ -294,6 +298,9 @@ pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in 
 ## Analysis for learn trials with position
 
 -   Farouts
+
+Validity has F value of 4 and p = .13
+Position of the number has F = 3, p = .17
 
 ```{r learnpfo}
 
