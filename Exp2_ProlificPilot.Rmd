@@ -5,7 +5,7 @@ date: "20/10/2020"
 output: html_document
 ---
 
-This is the Pilot Data Analysis collected from the hiwis for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
+This is the Pilot Data Analysis collected from Prolific for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
 
 Loading the libraries and the relevant data files
 
@@ -45,18 +45,16 @@ Exp2_ProlificPilot <- rbind(d1,d2,d3,d5)
 table(Exp2_ProlificPilot$preResp.rt)
 sum(is.na(Exp2_ProlificPilot$preResp.rt))
 
-write.csv(Exp2_ProlificPilot, file = "ProlificPilot.csv")
+#write.csv(Exp2_ProlificPilot, file = "ProlificPilot.csv")
 attach(Exp2_ProlificPilot)
 
 
 
 ```
 
-Checking the balance in design:
+2. Checking balance in design and all trials and conditions are balanced.
 
-*29 refers to rows containing NA*
-
-```{r design Check}
+```{r design Check, include = FALSE}
 #blockcount
 table(Block)
 table(Block,Condition) #29 refers to the NA rows
@@ -70,7 +68,7 @@ table(Saliency)
 detach(Exp2_ProlificPilot)
 ```
 
-Cleaning data
+Cleaning data : removing unnecessaary columns, filling Screen background and block count to every cell, splitting the RT column and changed the units to ms and creating a column for Error Rate
 
 ```{r cleaning, include=FALSE}
 
@@ -122,7 +120,7 @@ pander(table(Exp2_ProlificPilot$ACC_trials),style = 'rmarkdown',caption = "Accur
 
 ```
 
-Removing outliers
+Removing outliers and farouts and showing the summary of RTs for each exclusion criteria
 
 ```{r outliersfarouts, echo=FALSE}
 
@@ -154,7 +152,32 @@ pander(summary(Exp2_ProlificPilot$RT_io), style = 'rmarkdown', caption = "Summar
 
 ```
 
-Split the data as learn and test trials
+## Analysis of Validity across all trials
+
+    There are no main effects or an interaction (unlike hiwi pilots) As per the plot it also looks like for test trials, valid trials are faster but for learn valid trials, they are slower. (like the hiwis)
+      
+```{r alltrials, echo = FALSE, warning=FALSE}
+Exp2agg <- aggregate(data = Exp2_ProlificPilot,RT_ifo~participant+Validity+Condition,mean)
+
+
+anova_agg <- ezANOVA(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+        detailed = TRUE)
+
+pander(anova_agg, style = "markdown", caption = "ANOVa table for all trials with validity and condition as factors")
+
+ezPlot(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+       x=Condition,split = Validity, do_bars = FALSE)+
+  ylim(550,600)+theme_classic()
+```
+
+
+Splitting the data as learn and test trials to analyze individually
 
 ```{r}
 Exp2learn_ProlificPilot <- Exp2_ProlificPilot %>%
@@ -172,13 +195,15 @@ Exp2learn_ProlificPilot<- Exp2learn_ProlificPilot%>%
 
 -   Farouts
 
-```{r learn}
+    No significant difference between valid and invalid learn trials
+
+```{r learnfo, echo = FALSE}
 Exp2learn_ProlificPilot <- Exp2learn_ProlificPilot %>%
   select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
 
 #aggregate
-Exp2agg_l_pp_fo <- aggregate(data = Exp2learn_ProlificPilot,RT_ifo~participant+Validity+Saliency,mean)
-
+Exp2agg_l_pp_fo <- aggregate(data = Exp2learn_ProlificPilot,RT_ifo~participant+Validity,mean)
+kable(Exp2agg_l_pp_fo, format = "html", caption = "Summary of RTs of valid and invalid trials")
 
 t.test(RT_ifo~Validity, data = Exp2agg_l_pp_fo, paired = TRUE)
 
@@ -186,10 +211,12 @@ t.test(RT_ifo~Validity, data = Exp2agg_l_pp_fo, paired = TRUE)
 
 -   Outliers
 
-    ```{r learno}
+    Also no significant difference between valid and invalid learn trials
+
+    ```{r learno, echo = FALSE}
 
     #aggregate
-    Exp2agg_l_pp_o <- aggregate(data = Exp2learn_ProlificPilot,RT_io~participant+Validity+Saliency,mean)
+    Exp2agg_l_pp_o <- aggregate(data = Exp2learn_ProlificPilot,RT_io~participant+Validity,mean)
 
     t.test(RT_io~Validity, data = Exp2agg_l_pp_o, paired = TRUE)
 
@@ -197,8 +224,9 @@ t.test(RT_ifo~Validity, data = Exp2agg_l_pp_fo, paired = TRUE)
 
 -   Error Rate
 
-Why is there a difference of significance in error rate (ANOVA vs t test)
-```{r error}
+    Why is there a difference of significance in error rate (ANOVA vs t test). In the ANOVA it shows as if there is a significant validity effect, but not from the t test.
+
+```{r errorl, echo = FALSE, warning = FALSE}
 
 Exp2agg_l_pp_ER <- aggregate(data = Exp2learn_ProlificPilot,ErrorRate~participant+Validity+Saliency,mean)
 
@@ -208,7 +236,7 @@ anova_t_ER <- ezANOVA(data = Exp2agg_l_pp_ER,
         within = .(Validity),
         detailed = TRUE)
 
-pander(anova_t_ER, style = "markdown", caption = "ANOVa table for ERROR RATE in learn trials")
+pander(anova_t_ER, style = "markdown", caption = "ANOVA table for ERROR RATE in learn trials")
 t.test(ErrorRate~Validity, data = Exp2agg_l_pp_ER, paired = TRUE)
 
 ```
@@ -217,9 +245,9 @@ t.test(ErrorRate~Validity, data = Exp2agg_l_pp_ER, paired = TRUE)
 
 -   Farouts
 
-    There is no main effect of validity: You can see from the summary tables that it is not that different and some are infact slower in the valid condition and faster for invalid. But there seems to be an almost significant interaction between saliency and test trials
+    There is no main effect of validity: You can see from the summary tables that it is not that different and some are infact slower in the valid condition and faster for invalid. But there seems to be an almost significant interaction between saliency and validity of test trials, in the expected direction
 
-```{r test}
+```{r testfo, echo = FALSE, warning = FALSE}
 Exp2test_ProlificPilot <- Exp2test_ProlificPilot %>%
   select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
 
@@ -255,7 +283,7 @@ ezPlot(data = Exp2agg_t_pp_fo,
     This pattern is very different from the pattern from the farouts. There is no interaction anymore and the lines are simply alike, in the opposite direction even. Again we don't see a validity effect nor an interaction effect
    
 
-```{r}
+```{r testo, echo = FALSE, warning = FALSE}
 Exp2agg_t_pp_o <- aggregate(data = Exp2test_ProlificPilot,RT_io~participant+Validity+Saliency,mean)
 means_t_o <- aggregate(data=Exp2agg_t_pp_o,RT_io~participant+Validity,mean)
 salmeans_t_o <- aggregate(data=Exp2agg_t_pp_o,RT_io~participant+Saliency,mean)
@@ -285,7 +313,7 @@ ezPlot(data = Exp2agg_t_pp_o,
 
     No effects in the error Rates
 
-```{r}
+```{r ert, echo = FALSE, warning = FALSE}
 
 Exp2agg_t_pp_ER <- aggregate(data = Exp2test_ProlificPilot,ErrorRate~participant+Validity+Saliency,mean)
 
@@ -308,9 +336,9 @@ pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in 
 #### Analysis of learn trials - Position
 -   Farouts
 
-      NO effect and the RTs seem to be favouring the reversed condition where they are slower when teh position of salient word and number match 
+      NO effect and the RTs seem to be favouring the reversed condition where they are slower when the position of salient word and number match. 
 
-```{r learnp}
+```{r learnp, echo=FALSE, warning=FALSE}
 
 
 #aggregate
@@ -322,7 +350,7 @@ lp_anova <- ezANOVA(data = Exp2agg_lp_pp_fo,
         wid = participant,
         within = .(Validity, PositionMatch),
         detailed = TRUE)
-pander(lp_anova,style = 'rmarkdown')
+pander(lp_anova,style = 'rmarkdown',caption = "ANOVA with RTs , Validity and Position Match ")
 
 ezPlot(data = Exp2agg_lp_pp_fo,
         dv=RT_ifo,
@@ -338,7 +366,7 @@ ezPlot(data = Exp2agg_lp_pp_fo,
     
     No Effects
 
-    ```{r learno}
+    ```{r learnpo, echo = FALSE, warning = FALSE}
 Exp2agg_lp_pp_o <- aggregate(data = Exp2learn_ProlificPilot,RT_io~participant+Validity+PositionMatch,mean)
 
 
@@ -347,7 +375,7 @@ lp_anova_o <- ezANOVA(data = Exp2agg_lp_pp_o,
         wid = participant,
         within = .(Validity, PositionMatch),
         detailed = TRUE)
-pander(lp_anova_o,style = 'rmarkdown')
+pander(lp_anova_o,style = 'rmarkdown', caption = "ANOVA with RT(w/o OUtliers) and validity and position Match")
 
 ezPlot(data = Exp2agg_lp_pp_o,
         dv=RT_io,
@@ -363,23 +391,24 @@ ezPlot(data = Exp2agg_lp_pp_o,
 
     There is a validity effect.
 
-```{r error}
+```{r errorlp, echo = FALSE, warning = FALSE}
 
-Exp2agg_lp_pp_ER <- aggregate(data = Exp2learn_ProlificPilot,ErrorRate~participant+Validity+PositionMatch,mean)
+Exp2agg_lp_pp_ER <- aggregate(data =Exp2learn_ProlificPilot,ErrorRate~participant+Validity+PositionMatch,mean)
 
 lp_anova_er <- ezANOVA(data = Exp2agg_lp_pp_ER,
         dv=ErrorRate,
         wid = participant,
         within = .(Validity, PositionMatch),
         detailed = TRUE)
-pander(lp_anova_er,style = 'rmarkdown')
+
+pander(lp_anova_er,style = 'rmarkdown', caption = "ANOVA of error rate in learn trials with validity and position match")
 ```
 
 #### Analysis of test trials - Position
 -   Farouts
 
     No effect/influence of position of number. 
-```{r testp}
+```{r testpfo, echo=FALSE, warning = FALSE}
 
 #aggregate
 Exp2agg_tp_pp_fo <- aggregate(data = Exp2test_ProlificPilot,RT_ifo~participant+Validity+Saliency+PositionT,mean)
@@ -390,7 +419,7 @@ tp_anova <- ezANOVA(data = Exp2agg_tp_pp_fo,
         wid = participant,
         within = .(Validity, PositionT),
         detailed = TRUE)
-pander(tp_anova,style = 'rmarkdown')
+pander(tp_anova,style = 'rmarkdown', captions = "ANOVA with RTs(w/o farouts) with Position of Target and Validity")
 
 ezPlot(data = Exp2agg_tp_pp_fo,
         dv=RT_ifo,
@@ -403,10 +432,10 @@ ezPlot(data = Exp2agg_tp_pp_fo,
 
 -   Outliers
 
-      Same as farouts, no effects and plot also looks similar (unlike the plot for outliers, without the factor of position that looked different from farouts)
-
-    ```{r testo}
-Exp2agg_tp_pp_o <- aggregate(data = Exp2test_ProlificPilot,RT_io~participant+Validity+PositionT,mean)
+      Same as farouts, no effects and plot also looks similar 
+      
+    ```{r testpo, echo = FALSE, warning = FALSE}
+Exp2agg_tp_pp_o <- aggregate(data = Exp2test_ProlificPilot,RT_io~participant+Validity+Saliency+PositionT,mean)
 
 
 tp_anova_o <- ezANOVA(data = Exp2agg_tp_pp_o,
@@ -414,7 +443,7 @@ tp_anova_o <- ezANOVA(data = Exp2agg_tp_pp_o,
         wid = participant,
         within = .(Validity, PositionT),
         detailed = TRUE)
-pander(tp_anova_o,style = 'rmarkdown')
+pander(tp_anova_o,style = 'rmarkdown', caption = "ANOVA of RT(w/o Outliers) and validity and POsition of Target")
 
 ezPlot(data = Exp2agg_tp_pp_o,
         dv=RT_io,
@@ -428,7 +457,7 @@ ezPlot(data = Exp2agg_tp_pp_o,
 
     No effect
 
-```{r error}
+```{r errorp, echo=FALSE, warning=FALSE, message=FALSE}
 
 Exp2agg_tp_pp_ER <- aggregate(data = Exp2test_ProlificPilot,ErrorRate~participant+Validity+PositionT,mean)
 
@@ -437,5 +466,5 @@ tp_anova_er <- ezANOVA(data = Exp2agg_tp_pp_ER,
         wid = participant,
         within = .(Validity, PositionT),
         detailed = TRUE)
-pander(tp_anova_er,style = 'rmarkdown')
+pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and position of Target")
 ```

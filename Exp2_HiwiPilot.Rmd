@@ -7,7 +7,7 @@ output: html_document
 
 This is the Pilot Data Analysis collected from the hiwis for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
 
-Loading the libraries and the relevant data files
+1.  Loading the libraries and the relevant data files
 
 ```{r library and files, include=FALSE, message=FALSE}
 sessionInfo()#saving the R session
@@ -33,7 +33,7 @@ d2 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/2_pilotv2.csv")
 d3 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/3_pilotv2.csv")
 d4 <- read.csv("D:/PhD/Experiments/Exp2 Overshadowing/Data/Pilot/4_pilotv2.csv")
 
-
+#adding columns to be able to rbind. since these were older versions
 d1$preResp.rt <- 0
 d1$PROLIFIC_PID <- NA
 
@@ -44,18 +44,16 @@ Exp2_HiwiPilot <- rbind(d1,d2,d3,d4)
 
 
 
-write.csv(Exp2_HiwiPilot, file = "HiwiPilot.csv")
+#write.csv(Exp2_HiwiPilot, file = "HiwiPilot.csv")
 attach(Exp2_HiwiPilot)
 
 
 
 ```
 
-Checking the balance in design:
+2.  Checked balance of trials in design and all are good
 
-*29 refers to rows containing NA*
-
-```{r design Check}
+```{r design Check, include = FALSE}
 #blockcount
 table(Block)
 table(Block,Condition) #29 refers to the NA rows
@@ -69,7 +67,7 @@ table(Saliency)
 detach(Exp2_HiwiPilot)
 ```
 
-Cleaning data
+Cleaning data: removing unnecessary columns, filling the screen background for all cells, renaming the blocks, adjusting the rows containing RTs (splitting them and showing in units of ms) and creating a column for errorRate
 
 ```{r cleaning, include=FALSE}
 
@@ -88,8 +86,11 @@ Exp2_HiwiPilot <- Exp2_HiwiPilot %>%
          -CAproceed.rt,-CAproceed.keys,-ContAwareness.ran,-ContAwareness.thisIndex,-ContAwareness.thisN,-ContAwareness.thisTrialN,-ContAwareness.thisRepN,
          -Questionnaire.ran,-Questionnaire.thisIndex,-Questionnaire.thisTrialN,-Questionnaire.thisRepN,-todebrief.keys,-ExpExit.keys)
 
+
 #assigning the vaues of blockcount and screenbackground for every row
-Exp2_HiwiPilot <- Exp2_HiwiPilot%>%group_by(participant)%>%fill(Screen_bg,.direction = "down")
+
+Exp2_HiwiPilot$Screen_bg <- as.character(Exp2_HiwiPilot$Screen_bg)
+Exp2_HiwiPilot <- Exp2_HiwiPilot%>%dplyr::group_by(participant)%>%tidyr::fill(Screen_bg,.direction = "down")
 
 Exp2_HiwiPilot <- Exp2_HiwiPilot %>% group_by(participant)%>%fill(blocks.thisN,.direction = "up")
 
@@ -97,6 +98,7 @@ Exp2_HiwiPilot <- rename(Exp2_HiwiPilot, c("blocks.thisN" = "BlockCount"))
 
 Exp2_CA <- Exp2_HiwiPilot %>%
   filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
+
 
 #adjusting RT
 Exp2_HiwiPilot <- separate(Exp2_HiwiPilot, col = ResponseKey.rt, into = c("RT_Trials", "RT_secondary"), sep = ',')
@@ -121,9 +123,9 @@ pander(table(Exp2_HiwiPilot$ACC_trials),style = 'rmarkdown',caption = "Accuracy"
 
 ```
 
-Removing outliers
+Removing outliers and farouts and tabulating the summary of RTs after removing outliers/farouts
 
-```{r outliersfarouts, echo=FALSE}
+```{r outliersfarouts, include=FALSE}
 
 Exp2_HiwiPilot$RT_Trials[Exp2_HiwiPilot$ACC_trials==0] <- NA
 
@@ -153,7 +155,34 @@ pander(summary(Exp2_HiwiPilot$RT_io), style = 'rmarkdown', caption = "Summary of
 
 ```
 
-Split the data as learn and test trials
+
+
+## Analysis of Validity across all trials
+
+    There are no main effects, however there is a significant interaction between the type of a trial         (learn/test) and validity. As per the plot it also looks like for test trials, valid trials are faster        but for learn valid trials, they are slower. 
+      
+```{r alltrials, echo = FALSE, warning=FALSE}
+Exp2agg <- aggregate(data = Exp2_HiwiPilot,RT_ifo~participant+Validity+Condition,mean)
+
+
+anova_agg <- ezANOVA(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+        detailed = TRUE)
+
+pander(anova_agg, style = "markdown", caption = "ANOVa table for all trials with validity and condition as factors")
+
+ezPlot(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+       x=Condition,split = Validity, do_bars = FALSE)+
+  ylim(550,600)+theme_classic()
+```
+### Splitting as learn and test trials to analyze separately
+
+The data are Split as learn and test trials to analyse the effects of validity and saliency separately.
 
 ```{r}
 Exp2learn_HiwiPilot <- Exp2_HiwiPilot %>%
@@ -162,6 +191,8 @@ Exp2learn_HiwiPilot <- Exp2_HiwiPilot %>%
 Exp2test_HiwiPilot <- Exp2_HiwiPilot %>%
   filter(Condition == "test")
 
+
+#creating a variable taht refers to whether the position of the salient word and the target was the same or not.
 Exp2learn_HiwiPilot<- Exp2learn_HiwiPilot%>%
   mutate(PositionMatch = ifelse(as.character(PositionD)==as.character(PositionT),"same","different"))
 
@@ -170,14 +201,16 @@ Exp2learn_HiwiPilot<- Exp2learn_HiwiPilot%>%
 ## Analysis for learn trials
 
 -   Farouts
+    
+    Simple t test to compare valid and invalid trials and there are no significant differences between them
 
-```{r learn}
+```{r learnfo, echo = FALSE, warning=FALSE}
 Exp2learn_HiwiPilot <- Exp2learn_HiwiPilot %>%
   select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
 
 #aggregate
-Exp2agg_l_hp_fo <- aggregate(data = Exp2learn_HiwiPilot,RT_ifo~participant+Validity+Saliency,mean)
-
+Exp2agg_l_hp_fo <- aggregate(data = Exp2learn_HiwiPilot,RT_ifo~participant+Validity,mean)
+kable(Exp2agg_l_hp_fo, format = "html", caption = "Mean of valid and invalid learn trials")
 
 t.test(RT_ifo~Validity, data = Exp2agg_l_hp_fo, paired = TRUE)
 
@@ -185,10 +218,13 @@ t.test(RT_ifo~Validity, data = Exp2agg_l_hp_fo, paired = TRUE)
 
 -   Outliers
 
-    ```{r learno}
+    Again no difference between valid and invalid learn trials
+
+    ```{r learno, echo = FALSE}
 
     #aggregate
-    Exp2agg_l_hp_o <- aggregate(data = Exp2learn_HiwiPilot,RT_io~participant+Validity+Saliency,mean)
+    Exp2agg_l_hp_o <- aggregate(data = Exp2learn_HiwiPilot,RT_io~participant+Validity,mean)
+    kable(Exp2agg_l_hp_o, format =  "html", caption = "Mean of RTs(Outliers excluded) of valid and invalid trials")
 
     t.test(RT_io~Validity, data = Exp2agg_l_hp_o, paired = TRUE)
 
@@ -198,7 +234,7 @@ t.test(RT_ifo~Validity, data = Exp2agg_l_hp_fo, paired = TRUE)
 
 There is a main effect but in the opposite direction where there are more errors for valid trials compared to invalid trials
 
-```{r error}
+```{r errorl, echo = FALSE,warning=FALSE}
 
 Exp2agg_l_hp_ER <- aggregate(data = Exp2learn_HiwiPilot,ErrorRate~participant+Validity,mean)
 kable(Exp2agg_l_hp_ER, format = "html", caption = "Summary means for Error RATEs")
@@ -218,10 +254,9 @@ t.test(ErrorRate~Validity, data = Exp2agg_l_hp_ER, paired = TRUE)
 
 -   Farouts
 
-  in the pilot data from Hiwis, there is still no significant effect but the validity is almost significant with p = .10
-  Also in the right direction as per the graph
+      In the pilot data from Hiwis, there is still no significant effect but the validity is almost significant with p = .10 Also in the right direction as per the graph
 
-```{r test}
+```{r testfo, warning=FALSE}
 Exp2test_HiwiPilot <- Exp2test_HiwiPilot %>%
   select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
 
@@ -254,10 +289,9 @@ ezPlot(data = Exp2agg_t_hp_fo,
 
 -   Outliers
 
-   Here, the effects are not significant, but atleast the direction seems to be as expected where the mean difference between valid and invalid is larger for salient trials than non salient trials. But not statistically significant.
-   
+Here, the effects are not significant, but atleast the direction seems to be as expected where the mean difference between valid and invalid is larger for salient trials than non salient trials. But not statistically significant.
 
-```{r}
+```{r testo, warning=FALSE}
 Exp2agg_t_hp_o <- aggregate(data = Exp2test_HiwiPilot,RT_io~participant+Validity+Saliency,mean)
 means_t_o <- aggregate(data=Exp2agg_t_hp_o,RT_io~participant+Validity,mean)
 salmeans_t_o <- aggregate(data=Exp2agg_t_hp_o,RT_io~participant+Saliency,mean)
@@ -288,7 +322,7 @@ ezPlot(data = Exp2agg_t_hp_o,
 
     No effects in the error Rates
 
-```{r}
+```{r ert, echo = FALSE, warning = FALSE}
 
 Exp2agg_t_hp_ER <- aggregate(data = Exp2test_HiwiPilot,ErrorRate~participant+Validity+Saliency,mean)
 
@@ -304,16 +338,18 @@ pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in 
 
 
 ```
+
 ### Exploratory: Adding the factor of Position
+
       This analysis discusses the effect of salient word and the position of the number. Position Match variable indicates whether the salient word position and number appeared in the same place or not. Although this may not be of help because we brought the words closer together, I added this factor anyway to see how the data is.
 
 #### Analysis of learn trials - Position
+
 -   Farouts
 
-There seems to be a trend that is heading towards a possible significant interaction between validity and the position of the number/salient word in the LEARN Trials. However the direction seems reversed, wherein the valid trials with same match of position of number and salient word are the slowest. 
+      There seems to be a trend that is heading towards a possible significant interaction between validity and the position of the number/salient word in the LEARN Trials. However the direction seems reversed, wherein the valid trials with same match of position of number and salient word are the slowest.
 
-    
-```{r learnp}
+```{r learnp, echo = FALSE, warning=FALSE}
 
 
 #aggregate
@@ -338,21 +374,21 @@ ezPlot(data = Exp2agg_lp_hp_fo,
 ```
 
 -   Outliers
-    
-   This also shows a similar trend as the farouts, again in the reversed direction.
-   
-    ```{r learno}
-Exp2agg_lp_hp_o <- aggregate(data = Exp2learn_HiwiPilot,RT_io~participant+Validity+PositionMatch,mean)
+
+      This also shows a similar trend as the farouts, again in the reversed direction.
+
+    ```{r learnop, echo = FALSE, warning=FALSE}
+    Exp2agg_lp_hp_o <- aggregate(data = Exp2learn_HiwiPilot,RT_io~participant+Validity+PositionMatch,mean)
 
 
-lp_anova_o <- ezANOVA(data = Exp2agg_lp_hp_o,
+    lp_anova_o <- ezANOVA(data = Exp2agg_lp_hp_o,
         dv=RT_io,
         wid = participant,
         within = .(Validity, PositionMatch),
         detailed = TRUE)
-pander(lp_anova_o,style = 'rmarkdown')
+    pander(lp_anova_o,style = 'rmarkdown')
 
-ezPlot(data = Exp2agg_lp_hp_o,
+    ezPlot(data = Exp2agg_lp_hp_o,
         dv=RT_io,
         wid = participant,
         within = .(Validity, PositionMatch),
@@ -364,8 +400,9 @@ ezPlot(data = Exp2agg_lp_hp_o,
 
 -   Error Rate
 
-  There is a significant effect of error rate but with a reversed trend where valid trials have higher error rate (although the difference is not much)
-```{r error}
+      There is a significant effect of error rate but with a reversed trend where valid trials have higher error rate (although the difference is not much)
+
+```{r errorlp, echo = FALSE, warning=FALSE}
 
 Exp2agg_lp_hp_ER <- aggregate(data = Exp2learn_HiwiPilot,ErrorRate~participant+Validity+PositionMatch,mean)
 
@@ -384,10 +421,10 @@ ezPlot(data = Exp2agg_lp_hp_ER,
 ```
 
 #### Analysis of test trials - Position
--   Farouts
-  When position of the number is factored in the validity is almost significant (p = .09), also in the direction where top position is faster
-    
-```{r testp}
+
+-   Farouts When position of the number is factored in the validity is almost significant (p = .09), also in the direction where top position is faster
+
+```{r testp, echo = FALSE}
 
 #aggregate
 Exp2agg_tp_hp_fo <- aggregate(data = Exp2test_HiwiPilot,RT_ifo~participant+Validity+Saliency+PositionT,mean)
@@ -412,20 +449,20 @@ ezPlot(data = Exp2agg_tp_hp_fo,
 
 -   Outliers
 
-      There seems to be a trend heading towards a significant interaction between validity and position of number. 
+    There seems to be a trend heading towards a significant interaction between validity and position of number. but strangely the trend in validity does not match how it appeared to be in farouts. 
 
-    ```{r testo}
-Exp2agg_tp_hp_o <- aggregate(data = Exp2test_HiwiPilot,RT_io~participant+Validity+PositionT,mean)
+    ```{r testop, echo = FALSE}
+    Exp2agg_tp_hp_o <- aggregate(data = Exp2test_HiwiPilot,RT_io~participant+Validity+PositionT,mean)
 
 
-tp_anova_o <- ezANOVA(data = Exp2agg_tp_hp_o,
+    tp_anova_o <- ezANOVA(data = Exp2agg_tp_hp_o,
         dv=RT_io,
         wid = participant,
         within = .(Validity, PositionT),
         detailed = TRUE)
-pander(tp_anova_o,style = 'rmarkdown')
+    pander(tp_anova_o,style = 'rmarkdown')
 
-ezPlot(data = Exp2agg_tp_hp_o,
+    ezPlot(data = Exp2agg_tp_hp_o,
         dv=RT_io,
         wid = participant,
         within = .(Validity, PositionT),
@@ -438,8 +475,8 @@ ezPlot(data = Exp2agg_tp_hp_o,
 -   Error Rate
 
     No effect
-    
-```{r error}
+
+```{r errortp, echo = FALSE}
 
 Exp2agg_tp_hp_ER <- aggregate(data = Exp2test_HiwiPilot,ErrorRate~participant+Validity+PositionT,mean)
 

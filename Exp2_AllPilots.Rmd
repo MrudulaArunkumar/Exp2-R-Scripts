@@ -1,0 +1,568 @@
+---
+title: "Exp2_pilotdata"
+author: "Mrudula"
+date: "22/10/2020"
+output: html_document
+---
+
+This is the Pilot Data Analysis collected from Prolific and Hiwis for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
+
+The design looks like this. 
+
+
+![Design of the experiment.](D:/PhD/Experiments/Exp2 Overshadowing/ExpDocumentation/Exp2Design.jpg)
+
+Loading the libraries and the relevant data files
+
+```{r library and files, include=FALSE, message=FALSE}
+sessionInfo()#saving the R session
+
+library(tidyverse)
+library(plyr)
+library(ez)
+library(schoRsch)
+library(knitr)
+library(pander)
+library(rmarkdown)
+
+#clearing environment
+rm(list = ls())
+
+#setting up working directory globally only needed when using it first time
+library(here)
+set_here()
+
+#loading pilot
+Hiwis <- read.csv("HiwiPilot.csv")
+Prolific <- read.csv("ProlificPilot.csv")
+
+Hiwis$id <- NA
+Hiwis$session <- NA
+Hiwis$researcher <- NA
+
+
+Exp2_Pilot <- rbind(Hiwis, Prolific)
+
+
+#write.csv(Exp2_Pilot, file = "Pilot.csv")
+attach(Exp2_Pilot)
+
+
+
+```
+
+2.  Checking balance in design and all trials and conditions are balanced.
+
+```{r design Check, include = FALSE}
+#blockcount
+table(Block)
+table(Block,Condition) #29 refers to the NA rows
+table(Block,Condition, Validity)
+
+#position
+table(PositionD)
+table(PositionT)
+table(Saliency)
+
+detach(Exp2_Pilot)
+```
+
+Cleaning data : removing unnecessaary columns, filling Screen background and block count to every cell, splitting the RT column and changed the units to ms and creating a column for Error Rate
+
+```{r cleaning, include=FALSE}
+
+Exp2_Pilot <- Exp2_Pilot %>%
+  select(-X,-consentkey.keys,-consentkey.rt,-beginexp.rt,-beginexp.keys,-checkresp.corr,-checkresp.rt,-checkresp.keys,
+         -Attention.ran,-Attention.thisIndex,-Attention.thisN,-Attention.thisTrialN,-Attention.thisRepN,
+         -Question,-Solution,-gotoPrac.rt,-gotoPrac.keys,-InstRep.ran,-InstRep.thisIndex,-InstRep.thisN,-InstRep.thisTrialN,-InstRep.thisRepN,
+         -Prac_start.rt,-Prac_start.keys,-prctrials.ran,-prctrials.thisIndex,-prctrials.thisN,-prctrials.thisRepN,-prctrials.thisRepN,
+         -pracend.keys,-pracend.rt,-PracRepeat.ran,-PracRepeat.thisIndex,-PracRepeat.thisN,-PracRepeat.thisRepN,-PracRepeat.thisTrialN)
+
+#removing unwanted columns in the experimental side 
+Exp2_Pilot <- Exp2_Pilot %>%
+  select(-firstlearntrials.ran,-firstlearntrials.thisIndex,-firstlearntrials.thisRepN,-firstlearntrials.thisTrialN,
+         -brkcontinue.keys,-Exptrials.ran,-Exptrials.thisIndex,-Exptrials.thisTrialN, - Exptrials.thisRepN,
+         -afterpause.keys,-blocks.ran,-blocks.thisIndex,-blocks.thisTrialN,-blocks.thisRepN,
+         -CAproceed.rt,-CAproceed.keys,-ContAwareness.ran,-ContAwareness.thisIndex,-ContAwareness.thisN,-ContAwareness.thisTrialN,-ContAwareness.thisRepN,
+         -Questionnaire.ran,-Questionnaire.thisIndex,-Questionnaire.thisTrialN,-Questionnaire.thisRepN,-todebrief.keys,-ExpExit.keys)
+
+#assigning the vaues of blockcount and screenbackground for every row
+Exp2_Pilot <- Exp2_Pilot%>%group_by(participant)%>%fill(Screen_bg,.direction = "down")
+
+Exp2_Pilot <- Exp2_Pilot %>% group_by(participant)%>%fill(blocks.thisN,.direction = "up")
+
+Exp2_Pilot <- rename(Exp2_Pilot, c("blocks.thisN" = "BlockCount"))
+
+Exp2_CA <- Exp2_Pilot %>%
+  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
+
+#adjusting RT
+Exp2_Pilot <- separate(Exp2_Pilot, col = ResponseKey.rt, into = c("RT_Trials", "RT_secondary"), sep = ',')
+Exp2_Pilot$RT_Trials <- Exp2_Pilot$RT_Trials%>%
+  str_replace_all("\\[|\\]","")%>%
+  as.double(Exp2_Pilot$RT_Trials)
+Exp2_Pilot$RT_Trials <- 1000*(Exp2_Pilot$RT_Trials)
+Exp2_Pilot$PreTargetDisplayTime <- 1000*(Exp2_Pilot$PreTargetDisplayTime)
+
+Exp2_Pilot <- Exp2_Pilot%>%drop_na(RT_Trials)
+
+Exp2_Pilot$ACC_trials <- Exp2_Pilot$ResponseKey.corr
+Exp2_Pilot$ErrorRate <- 1 - Exp2_Pilot$ACC_trials
+
+```
+
+### Demographics
+
+Participants' Age and Gender
+
+```{r demo, echo=FALSE}
+Exp2_Pilot$Age[Exp2_Pilot$Age == '"$'] <- 24
+Exp2_Pilot$Age <- as.numeric(Exp2_Pilot$Age)
+pander(summary(Exp2_Pilot$Age), style = 'rmarkdown', caption = "Mean Age of participants")
+
+kable((table(Exp2_Pilot$Gender))/480, format = "html", caption = " Gender distribution")
+```
+
+Summary of the overall RT
+
+```{r descriptive, echo=FALSE}
+pander(summary(Exp2_Pilot$RT_Trials), style = 'rmarkdown',caption = 'Mean RT')
+pander(table(Exp2_Pilot$ACC_trials),style = 'rmarkdown',caption = "Accuracy")
+
+```
+
+### Exclusion of Outliers and Farouts
+
+Removing outliers and farouts and showing the summary of RTs for each exclusion criteria
+
+```{r outliersfarouts, echo=FALSE}
+
+Exp2_Pilot$RT_Trials[Exp2_Pilot$ACC_trials==0] <- NA
+
+
+#creating function to remove the outliers and farouts
+computeTukeys <- function(x){
+  P25 <- quantile(x$RT_Trials, .25, na.rm = TRUE, type = 6) #type = 6 -> used in SPSS
+  P75 <- quantile(x$RT_Trials, .75, na.rm = TRUE, type = 6)
+  x$Outlier <- P75 + 1.5*(P75 - P25)
+  x$Farouts <- P75 + 3.0*(P75 - P25)
+  return(x)
+}
+
+
+#identifying the outliers and farouts at individual level
+Exp2_Pilot <- ddply(Exp2_Pilot, .(participant), computeTukeys)
+
+#creating new column with RT trials after removing outliers/farouts
+Exp2_Pilot$RT_ifo <- Exp2_Pilot$RT_Trials
+Exp2_Pilot$RT_io <- Exp2_Pilot$RT_Trials
+Exp2_Pilot$RT_ifo[Exp2_Pilot$RT_ifo > Exp2_Pilot$Farouts|Exp2_Pilot$RT_ifo < 300] <- NA
+Exp2_Pilot$RT_io[Exp2_Pilot$RT_io > Exp2_Pilot$Outlier|Exp2_Pilot$RT_io < 300] <- NA
+
+pander(summary(Exp2_Pilot$RT_ifo), style = 'rmarkdown', caption = "Summary of RT after removing Farouts")
+pander(summary(Exp2_Pilot$RT_io), style = 'rmarkdown', caption = "Summary of RT after removing Outliers")
+
+
+```
+
+## Analysis of Validity across all trials
+
+There is a strong interaction between validity and condition, where test valid trials are faster and learn valid trials are slower
+
+```{r alltrials, echo = FALSE, warning=FALSE}
+Exp2agg <- aggregate(data = Exp2_Pilot,RT_ifo~participant+Validity+Condition,mean)
+
+
+anova_agg <- ezANOVA(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+        detailed = TRUE)
+panderOptions('table.split.table',300)
+pander(anova_agg, style = "rmarkdown", caption = "ANOVa table for all trials with validity and condition as factors",split.table = Inf, missing = NA)
+
+ezPlot(data = Exp2agg,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Validity,Condition),
+       x=Condition,split = Validity, do_bars = FALSE)+
+  ylim(550,600)+theme_classic()+
+  ggtitle("Mean RT per condition for valid and invalid trials")
+```
+
+Splitting the data as learn and test trials to analyze individually
+
+```{r}
+Exp2learn_Pilot <- Exp2_Pilot %>%
+  filter(Condition == "learn")
+
+Exp2test_Pilot <- Exp2_Pilot %>%
+  filter(Condition == "test")
+
+Exp2learn_Pilot<- Exp2learn_Pilot%>%
+  mutate(PositionMatch = ifelse(as.character(PositionD)==as.character(PositionT),"same","different"))
+
+```
+
+## Analysis for learn trials
+
+#### 1. Farouts
+
+A t test to determine the difference between valid and invalid trials showeed a p value of .13 in the direction of valid trials slower than invalid.
+
+```{r learnfo, echo = FALSE, message=FALSE}
+Exp2learn_Pilot <- Exp2learn_Pilot %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
+
+#aggregate
+Exp2agg_l_pp_fo <- aggregate(data = Exp2learn_Pilot,RT_ifo~participant+Validity,mean)
+# kable(Exp2agg_l_pp_fo, format = "html", caption = "Summary of RTs of valid and invalid trials")
+
+#convert to wide
+Exp2agg_l_pp_fo_wide <- spread(Exp2agg_l_pp_fo, Validity,RT_ifo)
+Exp2agg_l_pp_fo_wide$ValEffect <- Exp2agg_l_pp_fo_wide$invalid - Exp2agg_l_pp_fo_wide$valid
+Exp2agg_l_pp_fo_wide$participant <- c(1,2,3,4,5,6,7,8)
+pander(t.test(RT_ifo~Validity, data = Exp2agg_l_pp_fo, paired = TRUE), style = 'rmarkdown')
+
+
+
+```
+
+Plot showing the validity effect per participant in learn trials
+
+```{r echo = FALSE}
+ggplot(data = Exp2agg_l_pp_fo_wide, aes(x = participant, y = ValEffect))+
+  geom_bar(stat = "identity", fill = "darkslateblue")+
+  theme_classic()+
+  ggtitle("Validity Effect (invalid - valid) across learn trials in each participant")
+```
+
+#### 2. Outliers
+
+T test revealed a p value of .09 for learn valid and invalid trials again in the same direction as the farouts where invalid trials are faster than valid
+
+    ```{r learno, echo = FALSE}
+
+    #aggregate
+Exp2agg_l_pp_o <- aggregate(data = Exp2learn_Pilot,RT_io~participant+Validity,mean)
+Exp2agg_l_pp_o_wide <- spread(Exp2agg_l_pp_o, Validity,RT_io)
+Exp2agg_l_pp_o_wide$ValEffect <- Exp2agg_l_pp_o_wide$invalid - Exp2agg_l_pp_o_wide$valid
+Exp2agg_l_pp_o_wide$participant <- c(1,2,3,4,5,6,7,8)
+
+pander(t.test(RT_io~Validity, data = Exp2agg_l_pp_o, paired = TRUE), style = 'rmarkdown')
+
+ggplot(data = Exp2agg_l_pp_o_wide, aes(x = participant, y = ValEffect))+
+  geom_bar(stat = "identity", fill = "darkslateblue")+
+  theme_classic()+
+  ggtitle("Validity Effect (invalid - valid) across learn trials(outliers excluded) in each participant")
+
+    ```
+
+#### 3. Error Rate
+
+There is a significant difference between error rates of valid and invalid trials in learn condition wherein the invalid trials are more accurate than valid trials
+
+```{r errorl, echo = FALSE, warning = FALSE}
+
+Exp2agg_l_pp_ER <- aggregate(data = Exp2learn_Pilot,ErrorRate~participant+Validity,mean)
+
+pander(t.test(ErrorRate~Validity, data =Exp2agg_l_pp_ER, paired = TRUE), style = 'rmarkdown', caption = "t test results for error Rates", split.table = "Inf", missing = NA)
+
+ggplot(data = Exp2agg_l_pp_ER, aes(x = Validity, y = ErrorRate, fill = Validity))+
+  geom_bar(stat = "identity")+
+  facet_grid(.~participant)+
+  theme_classic()+
+  ylim(0,0.25)+
+  theme(axis.text.x = element_text(angle = 90))+
+  ggtitle("Mean ErrorRate for learn trials per participant")
+
+```
+
+## Analysis of Test Trials
+
+#### 1. Farouts
+
+We have an almost significant effect of Validity and a significant interaction of Saliency x Validity. The plot also shows that it is in the expected direction
+
+```{r testfo, echo = FALSE, warning = FALSE}
+Exp2test_Pilot <- Exp2test_Pilot %>%
+  select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,everything())
+
+#aggregate
+Exp2agg_t_pp_fo <- aggregate(data = Exp2test_Pilot,RT_ifo~participant+Validity+Saliency,mean)
+# 
+# aggmean_t_fo <- ddply(Exp2agg_t_pp_fo, .(participant,Validity), summarize, RTmean=mean(RT_ifo), SD = sd(RT_ifo))
+# salmean_t_fo <- ddply(Exp2agg_t_pp_fo, .(participant,Saliency), summarize, RTmean=mean(RT_ifo), SD = sd(RT_ifo))
+
+# kable(aggmean_t_fo, format = "html", caption = "Summary means of valid vs invalid across participant")
+# kable(salmean_t_fo, format = "html", caption = "Summary means of Salient vs non salient across participant")
+
+anova_t_fo <- ezANOVA(data = Exp2agg_t_pp_fo,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Saliency,Validity),
+        detailed = TRUE)
+
+pander(anova_t_fo, style = 'rmarkdown', caption = "ANOVA results: Farouts excluded for test trials",split.table = "Inf", missing = NA)
+
+ezPlot(data = Exp2agg_t_pp_fo,
+        dv = RT_ifo,
+        wid = participant,
+        within = .(Saliency,Validity),
+        split = Validity, x=Saliency, do_bars = FALSE)+
+        theme_classic()+
+        ylim(550,600)+
+        ggtitle("Mean RT for valid and invalid trials across saliency")
+```
+
+Plot showing the Validity effect across participants
+
+```{r echo =  FALSE}
+Exp2valeffect_tfo <- spread(Exp2agg_t_pp_fo, Validity, RT_ifo)
+Exp2valeffect_tfo$ValEffect <- Exp2valeffect_tfo$invalid - Exp2valeffect_tfo$valid
+
+ggplot(data = Exp2valeffect_tfo, aes(x = Saliency, y = ValEffect, fill = Saliency))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  facet_grid(.~participant)+
+  theme(axis.text.x = element_text(angle = 90))+
+  ylab("Validity Effect")+
+  ggtitle("Validity Effect (invalid - valid) across test trials(farouts excluded) in each participant")
+```
+
+#### 2. Outliers
+
+It does not appear significant anymore but the plot seems like smaller/weaker version of the farouts
+
+```{r testo, echo = FALSE, warning = FALSE}
+Exp2agg_t_pp_o <- aggregate(data = Exp2test_Pilot,RT_io~participant+Validity+Saliency,mean)
+#means_t_o <- aggregate(data=Exp2agg_t_pp_o,RT_io~participant+Validity,mean)
+#salmeans_t_o <- aggregate(data=Exp2agg_t_pp_o,RT_io~participant+Saliency,mean)
+
+
+#kable(means_t_o, format = "html", caption = "Summary means of valid vs invalid across participant")
+#kable(salmeans_t_o, format = "html", caption = "Summary means of Salient vs non salient across participant")
+
+
+anova_t_o <- ezANOVA(data = Exp2agg_t_pp_o,
+            dv = RT_io,
+            wid = participant,
+            within = .(Saliency,Validity),
+            detailed = TRUE)
+pander(anova_t_o, style = 'rmarkdown', caption = "ANOVA results: Outliers excluded for test trials", split.table = "Inf", missing = NA)
+ 
+ezPlot(data = Exp2agg_t_pp_o,
+        dv = RT_io,
+        wid = participant,
+        within = .(Saliency,Validity),
+        split = Validity, x=Saliency, do_bars = FALSE)+
+  ylim(550,600)+theme_classic()
+
+```
+
+Effect across each participant
+
+```{r echo = FALSE}
+Exp2valeffect_to <- spread(Exp2agg_t_pp_o, Validity, RT_io)
+Exp2valeffect_to$ValEffect <- Exp2valeffect_to$invalid - Exp2valeffect_to$valid
+
+ggplot(data = Exp2valeffect_to, aes(x = Saliency, y = ValEffect, fill = Saliency))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  facet_grid(.~participant)+
+  theme(axis.text.x = element_text(angle = 90))+
+  ylab("Validity Effect")+
+  ggtitle("Validity Effect (invalid - valid) across test trials(outliers excluded) in each participant")
+```
+
+### 3. Error Rate
+
+There seems to be an almost significant effect of saliency and validity
+
+```{r ert, echo = FALSE, warning = FALSE}
+
+Exp2agg_t_pp_ER <- aggregate(data = Exp2test_Pilot,ErrorRate~participant+Validity+Saliency,mean)
+
+
+anova_t_ER <- ezANOVA(data = Exp2agg_t_pp_ER,
+        dv = ErrorRate,
+        wid = participant,
+        within = .(Saliency,Validity),
+        detailed = TRUE)
+panderOptions('table.split.table',300)
+pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in test trials", split.table = "Inf", missing = NA)
+
+ggplot(data = Exp2agg_t_pp_ER, aes(x = Validity, y = ErrorRate, fill = Validity))+
+  geom_col()+
+  facet_grid(Saliency~participant)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 90))+
+  ggtitle("Mean ErrorRate for learn trials per participant")
+
+```
+
+## Exploratory: Adding the factor of Position
+
+This analysis discusses the effect of salient word and the position of the number. Position Match variable indicates whether the salient word position and number appeared in the same place or not. Although this may not be of help because we brought the words closer together, I added this factor anyway to see how the data is.
+
+## Analysis of learn trials - Position
+
+#### 1. Farouts
+
+Here, we would have expected the pattern to be reversed, where valid and same position trials are fastest. The validity effect is at p = .12
+
+```{r learnp, echo=FALSE, warning=FALSE}
+
+
+#aggregate
+Exp2agg_lp_pp_fo <- aggregate(data = Exp2learn_Pilot,RT_ifo~participant+Validity+PositionMatch,mean)
+
+
+lp_anova <- ezANOVA(data = Exp2agg_lp_pp_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+
+panderOptions('table.split.table',300)
+pander(lp_anova, style = 'rmarkdown',caption = "ANOVA with RTs , Validity and Position Match", split.table = "Inf", missing = NA)
+
+ezPlot(data = Exp2agg_lp_pp_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+       split = Validity, x=PositionMatch, do_bars = FALSE)+
+      theme_classic()+
+        ylim(550,600)+ggtitle("RTs when position match between salient word and number in learn trials (farouts excluded)")
+
+```
+
+### 2. Outliers
+
+Almost significant validity effect(p = .08) when PositionMatch of salient word and number is factored in the ANOVA
+
+```{r learnpo, echo = FALSE, warning = FALSE, message = FALSE}
+Exp2agg_lp_pp_o <- aggregate(data = Exp2learn_Pilot,RT_io~participant+Validity+PositionMatch,mean)
+
+lp_anova_o <- ezANOVA(data = Exp2agg_lp_pp_o,
+        dv=RT_io,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+
+panderOptions('table.split.table',300)
+pander(lp_anova_o,style = 'rmarkdown', caption = "ANOVA with RT(w/o OUtliers) and validity and position Match", split.table = "Inf", missing = NA)
+
+ezPlot(data = Exp2agg_lp_pp_o,
+      dv=RT_io,
+      wid = participant,
+      within = .(Validity, PositionMatch),
+      split = Validity, x=PositionMatch, do_bars = FALSE)+
+      ylim(550,600)+
+      theme_classic()+ggtitle("RTs when position match between salient word and number in learn trials (outliers excluded)")
+
+```
+
+### 3. Error Rate
+
+There is a strong validity effect. Valid trials have more errors than the invalid
+
+```{r errorlp, echo = FALSE, warning = FALSE}
+
+Exp2agg_lp_pp_ER <- aggregate(data =Exp2learn_Pilot,ErrorRate~participant+Validity+PositionMatch,mean)
+
+lp_anova_er <- ezANOVA(data = Exp2agg_lp_pp_ER,
+        dv=ErrorRate,
+        wid = participant,
+        within = .(Validity, PositionMatch),
+        detailed = TRUE)
+
+pander(lp_anova_er,style = 'rmarkdown', caption = "ANOVA of error rate in learn trials with validity and position match", split.table = "Inf", missing = NA)
+
+ggplot(data = Exp2agg_lp_pp_ER, aes(x = Validity, y = ErrorRate, fill = Validity))+
+  geom_col()+
+  facet_grid(PositionMatch~participant)+
+  theme_classic()+
+  ylim(0,0.25)+
+  theme(axis.text.x = element_text(angle = 90))+
+  ggtitle("Mean ErrorRate for learn trials per participant")
+```
+
+## Analysis of test trials - Position
+
+### 1. Farouts
+
+Main effect of Validity when Position of Number is factored in and a significant interaction between saliency and Validity 
+
+```{r testpfo, echo=FALSE, warning = FALSE}
+
+#aggregate
+Exp2agg_tp_pp_fo <- aggregate(data = Exp2test_Pilot,RT_ifo~participant+Validity+Saliency+PositionT,mean)
+
+
+tp_anova <- ezANOVA(data = Exp2agg_tp_pp_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionT,Saliency),
+        detailed = TRUE)
+pander(tp_anova,style = 'rmarkdown', captions = "ANOVA with RTs(w/o farouts) with Position of Target and Validity", split.table = "Inf", missing = NA)
+
+ezPlot(data = Exp2agg_tp_pp_fo,
+        dv=RT_ifo,
+        wid = participant,
+        within = .(Validity, PositionT,Saliency),
+       split = Validity, x=Saliency, do_bars = FALSE)+
+  ylim(550,600)+theme_classic()+
+  facet_grid(~PositionT)+
+  ggtitle("Mean RT of valid and invalid trials across saliency for both positions of target")
+
+```
+
+### 2. Outliers
+
+No effect of Position of Target and validity or Saliency
+
+```{r testpo, echo = FALSE, warning = FALSE, message = FALSE}
+Exp2agg_tp_pp_o <- aggregate(data = Exp2test_Pilot,RT_io~participant+Validity+Saliency+PositionT,mean)
+
+
+tp_anova_o <- ezANOVA(data = Exp2agg_tp_pp_o,
+    dv=RT_io,
+    wid = participant,
+    within = .(Validity, PositionT, Saliency),
+    detailed = TRUE)
+
+panderOptions('table.split.table',300)
+pander(tp_anova_o,style = 'rmarkdown', caption = "ANOVA of RT(w/o Outliers) and validity and POsition of Target")
+
+ezPlot(data = Exp2agg_tp_pp_o,
+    dv=RT_io,
+    wid = participant,
+    within = .(Validity, PositionT,Saliency),
+    split = Validity, x=Saliency, do_bars = FALSE)+ylim(550,600)+theme_classic()+
+  facet_grid(~PositionT)+ggtitle("Mean RT of valid and invalid trials across saliency for both positions of target")
+
+```
+
+### 3. Error Rate
+
+Almost significant effects of validity and saliency and the interaction between validity and Position of Target
+
+```{r errorp, echo=FALSE, warning=FALSE, message=FALSE}
+
+Exp2agg_tp_pp_ER <- aggregate(data = Exp2test_Pilot,ErrorRate~participant+Validity+PositionT+Saliency,mean)
+
+tp_anova_er <- ezANOVA(data = Exp2agg_tp_pp_ER,
+        dv=ErrorRate,
+        wid = participant,
+        within = .(Validity, PositionT,Saliency),
+        detailed = TRUE)
+pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and position of Target", split.table = "Inf", missing = NA)
+
+ezPlot(data = Exp2agg_tp_pp_ER,
+        dv=ErrorRate,
+        wid = participant,
+        within = .(Validity, PositionT,Saliency),
+       split = Validity, x = Saliency, do_bars = FALSE)+
+  facet_grid(~PositionT)+theme_classic()+ylim(0,0.15)+ggtitle("Mean Error Rate for test trials")
+```
