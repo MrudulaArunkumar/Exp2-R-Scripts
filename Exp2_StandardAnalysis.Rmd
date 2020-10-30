@@ -581,22 +581,38 @@ pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and pos
 ## Contingency Awareness Analysis
 
 ```{r}
-CA_TotalAcc <- Exp2_CA %>%
+CA_Summary <- Exp2_CA %>%
   dplyr::group_by(participant) %>%
-  dplyr::summarise(TotalAcc = sum(CA_RespKey.corr, na.rm=TRUE))
+  dplyr::summarise(sum(CA_RespKey.corr, na.rm=TRUE))
 
- CA_TotalAcc$MeanAcc <- Exp2_CA %>%
+CA_Summary$MeanAcc <- Exp2_CA %>%
   dplyr::group_by(participant) %>%
-  dplyr::summarise(MeanAcc= mean(CA_RespKey.corr, na.rm=TRUE))
+  dplyr::summarise(mean(CA_RespKey.corr, na.rm=TRUE))
 
-summary(CA_TotalAcc$TotalAcc)
+summary(CA_Summary$TotalAcc)
 
 
 ##funnelled Questionnaire
-QuesCA <- Exp2_CA %>%
-  dplyr::group_by(participant)%>%
-  mutate(EvenYes = ifelse(Exp2_CA$Questionnaire.thisN == 0, sum(Exp2_CA$AwarenessResp.keys == "j"), NA))
 
+
+detach(Exp2_CA)
+CA_Summary$EvenYes <- Exp2_CA %>% 
+  dplyr::group_by(participant)%>%
+  dplyr::summarise(sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==0,na.rm = TRUE))
+CA_Summary$OddYes <- Exp2_CA %>%
+  dplyr::group_by(participant)%>%
+  dplyr::summarise(sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==1,na.rm = TRUE))
+CA_Summary$EvenNo <- Exp2_CA %>% 
+  dplyr::group_by(participant)%>%
+  dplyr::summarise(sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==0,na.rm = TRUE))
+CA_Summary$OddNo <- Exp2_CA %>%
+  dplyr::group_by(participant)%>%
+  dplyr::summarise(sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==1,na.rm = TRUE))
+
+#Words
+#create a new dataset that has thevalues from EXp2_CA awareness Qs as each column and then check for wordpair and if the word pair and key for each question match then we can say whether it is accurate/salient or not.
+
+CA_Wordsguess <- dcast()
 
 ```
 
