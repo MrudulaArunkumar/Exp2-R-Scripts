@@ -84,12 +84,15 @@ Exp2data <- Exp2data%>%group_by(participant)%>%fill(Screen_bg,.direction = "down
 
 Exp2data <- Exp2data %>% group_by(participant)%>%fill(blocks.thisN,.direction = "up")
 
+
+
 Exp2data <- rename(Exp2data, c("blocks.thisN" = "BlockCount"))
 
 #creating a separate df with the contingency awareness
 Exp2_CA <- Exp2data %>%
   filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
 
+Exp2_CA <- Exp2_CA %>% group_by(participant)%>%fill(WordPair,.direction = "down")
 #adjusting RT
 Exp2data <- separate(Exp2data, col = ResponseKey.rt, into = c("RT_Trials", "RT_secondary"), sep = ',')
 Exp2data$RT_Trials <- Exp2data$RT_Trials%>%
@@ -399,7 +402,7 @@ anova_wBG <- ezANOVA(data = whitebg,
                      within =  .(Saliency,Validity),
                      detailed = TRUE)
 
-pander(anova_wBG, style = "rmarkdown", caotion = "ANOVA for white background")
+pander(anova_wBG, style = "rmarkdown", caption = "ANOVA for white background")
 
 ##for black bg
 blackbg <-  Exp2test %>%
@@ -413,7 +416,7 @@ anova_bBG <- ezANOVA(data = blackbg,
                      within =  .(Saliency,Validity),
                      detailed = TRUE)
 
-pander(anova_bBG, style = "rmarkdown", caotion = "ANOVA for black background")
+pander(anova_bBG, style = "rmarkdown", caption = "ANOVA for black background")
 
 
 
@@ -578,41 +581,37 @@ pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and pos
 #        split = Validity, x = Saliency, do_bars = FALSE)+
 #   facet_grid(~PositionT)+theme_classic()+ylim(0,0.15)+ggtitle("Mean Error Rate for test trials")
 ```
+
 ## Contingency Awareness Analysis
 
 ```{r}
+#Words
+#create a new dataframethat has the values from EXp2_CA awareness Qs as each column and then check for wordpair and if the word pair and key for each question match then we can say whether it is accurate/salient or not.
+
+Exp2_CA <- Exp2_CA %>%
+  mutate(WordPrediction = ifelse(WordPair == 1 & Questionnaire.thisN == 2 & AwarenessResp.keys == "l", 1, ifelse(WordPair == 1 & Questionnaire.thisN == 3 & AwarenessResp.keys == "a",1, ifelse(WordPair == 1 & Questionnaire.thisN == 4 & AwarenessResp.keys == "l",1,ifelse(WordPair==1 & Questionnaire.thisN == 5 & AwarenessResp.keys == "a",1,NA)))))
+
+Exp2_CA <- Exp2_CA %>%
+  mutate(WordPrediction = ifelse(WordPair == 2 & Questionnaire.thisN == 2 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE, 1, ifelse(WordPair == 2 & Questionnaire.thisN == 3 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1, ifelse(WordPair == 2 & Questionnaire.thisN == 4 & AwarenessResp.keys == "l" & is.na(WordPrediction) == TRUE,1,ifelse(WordPair==2 & Questionnaire.thisN == 5 & AwarenessResp.keys == "l" & is.na(WordPrediction) == TRUE,1,NA)))))
+
+Exp2_CA <- Exp2_CA %>%
+  mutate(WordPrediction = ifelse(WordPair == 3 & Questionnaire.thisN == 2 & AwarenessResp.keys == "a"& is.na(WordPrediction) == TRUE, 1, ifelse(WordPair == 3 & Questionnaire.thisN == 3 & AwarenessResp.keys == "l"& is.na(WordPrediction) == TRUE,1, ifelse(WordPair == 3 & Questionnaire.thisN == 4 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1,ifelse(WordPair==3 & Questionnaire.thisN == 5 & AwarenessResp.keys == "l" & is.na(WordPrediction) == TRUE,1,NA)))))
+
+Exp2_CA <- Exp2_CA %>%
+  mutate(WordPrediction = ifelse(WordPair == 4 & Questionnaire.thisN == 2 & AwarenessResp.keys == "l"& is.na(WordPrediction) == TRUE, 1, ifelse(WordPair == 4 & Questionnaire.thisN == 3 & AwarenessResp.keys == "l"& is.na(WordPrediction) == TRUE,1, ifelse(WordPair == 4 & Questionnaire.thisN == 4 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1,ifelse(WordPair==4 & Questionnaire.thisN == 5 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1,NA)))))
+
+#Adding all the relevant variables to a separate dataframe
 CA_Summary <- Exp2_CA %>%
   dplyr::group_by(participant) %>%
-  dplyr::summarise(sum(CA_RespKey.corr, na.rm=TRUE))
-
-CA_Summary$MeanAcc <- Exp2_CA %>%
-  dplyr::group_by(participant) %>%
-  dplyr::summarise(mean(CA_RespKey.corr, na.rm=TRUE))
-
-summary(CA_Summary$TotalAcc)
-
-
-##funnelled Questionnaire
+  dplyr::summarise(TotalAcc = sum(CA_RespKey.corr, na.rm=TRUE),
+                   MeanAcc = mean(CA_RespKey.corr, na.rm=TRUE),
+                   EvenYes = sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==0,na.rm = TRUE),
+                   OddYes = sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==1,na.rm = TRUE),
+                   OddNo = sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==1,na.rm = TRUE),
+                   EvenNo = sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==0,na.rm = TRUE),
+                   AccWordPrediction = sum(WordPrediction, na.rm = TRUE))
 
 
-detach(Exp2_CA)
-CA_Summary$EvenYes <- Exp2_CA %>% 
-  dplyr::group_by(participant)%>%
-  dplyr::summarise(sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==0,na.rm = TRUE))
-CA_Summary$OddYes <- Exp2_CA %>%
-  dplyr::group_by(participant)%>%
-  dplyr::summarise(sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==1,na.rm = TRUE))
-CA_Summary$EvenNo <- Exp2_CA %>% 
-  dplyr::group_by(participant)%>%
-  dplyr::summarise(sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==0,na.rm = TRUE))
-CA_Summary$OddNo <- Exp2_CA %>%
-  dplyr::group_by(participant)%>%
-  dplyr::summarise(sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==1,na.rm = TRUE))
-
-#Words
-#create a new dataset that has thevalues from EXp2_CA awareness Qs as each column and then check for wordpair and if the word pair and key for each question match then we can say whether it is accurate/salient or not.
-
-CA_Wordsguess <- dcast()
-
+table(CA_Summary$participant,CA_Summary$EvenYes)
 ```
 
