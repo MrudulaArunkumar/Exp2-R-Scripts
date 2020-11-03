@@ -229,6 +229,7 @@ pander(t.test(RT_ifo~Validity, data = Exp2agg_l_fo, paired = TRUE), style = 'rma
 Plot showing the validity effect per participant in learn trials
 
 ```{r echo = FALSE}
+Exp2agg_l_fo_wide$participant <- as.factor(Exp2agg_l_fo_wide$participant)
 ggplot(data = Exp2agg_l_fo_wide, aes(x = participant, y = ValEffect))+
   geom_bar(stat = "identity", fill = "darkslateblue")+
   theme_classic()+
@@ -245,7 +246,8 @@ Validity effect is p = 0.09, with a mean difference of 5.8s
 Exp2agg_l_o <- aggregate(data = Exp2learn,RT_io~participant+Validity,mean)
 Exp2agg_l_o_wide <- spread(Exp2agg_l_o, Validity,RT_io)
 Exp2agg_l_o_wide$ValEffect <- Exp2agg_l_o_wide$invalid - Exp2agg_l_o_wide$valid
-Exp2agg_l_o$participant <- as.factor(Exp2agg_l_o$participant)
+Exp2agg_l_o_wide$participant <- as.factor(Exp2agg_l_o_wide$participant)
+
 
 pander(t.test(RT_io~Validity, data = Exp2agg_l_o, paired = TRUE), style = 'rmarkdown')
 
@@ -341,17 +343,18 @@ ezPlot(data = Exp2agg_t_o,
 
 
 
-```{r include = FALSE}
+```{r echo = FALSE, fig.height=10, fig.width=15}
 
 #Effect across each participant
 Exp2valeffect_to <- spread(Exp2agg_t_o, Validity, RT_io)
 Exp2valeffect_to$ValEffect <- Exp2valeffect_to$invalid - Exp2valeffect_to$valid
+Exp2valeffect_to$participant <- as.factor(Exp2valeffect_to$participant)
 
 ggplot(data = Exp2valeffect_to, aes(x = Saliency, y = ValEffect, fill = Saliency))+
   geom_bar(stat = "identity")+
   theme_classic()+
   facet_grid(.~participant)+
-  theme(axis.text.x = element_text(angle = 90))+
+  theme(axis.text.x = element_text(angle = 90), axis.text.x.bottom = element_blank())+
   ylab("Validity Effect")+
   ggtitle("Validity Effect (invalid - valid) across test trials(outliers excluded) in each participant")
 ```
@@ -584,7 +587,7 @@ pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and pos
 
 ## Contingency Awareness Analysis
 
-```{r}
+```{r CAadd , include = FALSE}
 #Words
 #create a new dataframethat has the values from EXp2_CA awareness Qs as each column and then check for wordpair and if the word pair and key for each question match then we can say whether it is accurate/salient or not.
 
@@ -611,7 +614,61 @@ CA_Summary <- Exp2_CA %>%
                    EvenNo = sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==0,na.rm = TRUE),
                    AccWordPrediction = sum(WordPrediction, na.rm = TRUE))
 
+CA_Summary$participant <- as.factor(CA_Summary$participant)
+table(CA_Summary$participant,CA_Summary$TotalAcc)
+```
 
-table(CA_Summary$participant,CA_Summary$EvenYes)
+```{r CAplots , include = FALSE}
+ggplot(CA_Summary, aes(x=participant, y = TotalAcc))+
+  geom_bar(stat = "identity", fill = "darkslateblue")+
+  theme_classic()+ggtitle("Accuracy of Awareness trials per participants")
+
+ppGuessaboveag <- c(14,16,25,26,31,32,33,34,38,43,42,47,49,51,53)
+```
+
+
+### ANOVA after filtering out participants who did better in CA trials
+
+```{r}
+Exp2CAAboveAvg <- Exp2agg_t_fo %>%
+  filter(participant%in%ppGuessaboveag)
+
+anova_CA <- ezANOVA(data = Exp2CAAboveAvg,
+                    dv = RT_ifo,
+                    wid = participant,
+                    within = .(Saliency, Validity),
+                    detailed = TRUE)
+
+pander(anova_CA, style = "rmarkdown", caption = "ANOVA of RTs of participants who scored above average")
+
+ezPlot(data = Exp2CAAboveAvg,
+                    dv = RT_ifo,
+                    wid = participant,
+                    within = .(Saliency, Validity),
+                    split = Validity, x = Saliency, do_bars = FALSE)+
+  ylim(500,600)+theme_classic()+ggtitle("Interaction between validity and saliency for participants who scored above average in CA trials")
+
+library(Hmisc)
+Exp2CAbelowAvg <- Exp2agg_t_fo %>%
+  filter(participant%nin%ppGuessaboveag)
+
+is.na(Exp2CAbelowAvg)
+
+anova_nonCA <- ezANOVA(data = Exp2CAbelowAvg,
+                    dv = RT_ifo,
+                    wid = participant,
+                    within = .(Saliency, Validity),
+                    detailed = TRUE)
+pander(anova_nonCA)
+
+
+ezPlot(data = Exp2CAbelowAvg,
+                    dv = RT_ifo,
+                    wid = participant,
+                    within = .(Saliency, Validity),
+                    split = Validity, x = Saliency, do_bars = FALSE)+
+  ylim(550,610)+
+  theme_classic()+ggtitle("Interaction between validity and saliency for participants who scored below average in CA trials")
+
 ```
 
