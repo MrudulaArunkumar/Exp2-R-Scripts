@@ -625,11 +625,18 @@ Exp2_CA <- Exp2_CA %>%
 Exp2_CA <- Exp2_CA %>%
   mutate(WordPrediction = ifelse(WordPair == 4 & Questionnaire.thisN == 2 & AwarenessResp.keys == "l"& is.na(WordPrediction) == TRUE, 1, ifelse(WordPair == 4 & Questionnaire.thisN == 3 & AwarenessResp.keys == "l"& is.na(WordPrediction) == TRUE,1, ifelse(WordPair == 4 & Questionnaire.thisN == 4 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1,ifelse(WordPair==4 & Questionnaire.thisN == 5 & AwarenessResp.keys == "a" & is.na(WordPrediction) == TRUE,1,NA)))))
 
+
+Exp2_CA <- Exp2_CA %>%
+  mutate(SalTotalAcc = ifelse(Saliency == "salient" & CA_RespKey.corr == 1, 1, 0))
+
+
+
 #Adding all the relevant variables to a separate dataframe
 CA_Summary <- Exp2_CA %>%
   dplyr::group_by(participant) %>%
   dplyr::summarise(TotalAcc = sum(CA_RespKey.corr, na.rm=TRUE),
                    MeanAcc = mean(CA_RespKey.corr, na.rm=TRUE),
+                   SalAcc = sum(SalTotalAcc, na.rm = TRUE),
                    EvenYes = sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==0,na.rm = TRUE),
                    OddYes = sum(AwarenessResp.keys == "j" & Questionnaire.thisN ==1,na.rm = TRUE),
                    OddNo = sum(AwarenessResp.keys == "n" & Questionnaire.thisN ==1,na.rm = TRUE),
@@ -705,17 +712,12 @@ ezPlot(data = Exp2CAbelowAvg,
 
 ```
 
+### 3. Correlations
 
 ```{r}
 
 cor(CA_Summary$TotalAcc,CA_Summary$AccWordPrediction)
 
-ggplot(CA_Summary,aes(x=AccWordPrediction, y = TotalAcc))+
-  geom_point()+
-  geom_hline(lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction))
-
-plot(CA_Summary$TotalAcc,CA_Summary$AccWordPrediction,abline(lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction)))
-lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction)
 
 plot(CA_Summary$AccWordPrediction,CA_Summary$TotalAcc) +abline(lm(TotalAcc~AccWordPrediction, data = CA_Summary))
 ```
@@ -731,7 +733,7 @@ cor(Exp2CARTValSAL$CLIn, Exp2CARTValSAL$TotalAcc)
 plot(Exp2CARTValSAL$CLIn~Exp2CARTValSAL$TotalAcc)+
 abline(lm(Exp2CARTValSAL$CLIn~Exp2CARTValSAL$TotalAcc, data = Exp2CARTValSAL))
 
-
+### for FAROUTS
 
 Exp2wide_tfo <- dcast(data = Exp2agg_t_fo, participant~Validity+Saliency, value.var =  "RT_ifo")
 Exp2CARTValSALf <- merge(Exp2wide_tfo,CA_Summary, by = "participant")
@@ -753,6 +755,10 @@ Exp2CARTValSALf$ValEff <- Exp2CARTValSALf$inValid - Exp2CARTValSALf$Valid
 cor(Exp2CARTValSALf$ValEff, Exp2CARTValSALf$TotalAcc)
 
 plot(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$TotalAcc)+abline(lm(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$TotalAcc))
+
+cor(Exp2CARTValSALf$ValEff, Exp2CARTValSALf$SalAcc)
+
+plot(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$SalAcc)+abline(lm(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$SalAcc))
 ```
 
 
