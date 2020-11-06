@@ -1,14 +1,13 @@
 ---
 title: "Exp2_data"
 author: "Mrudula"
-date: "28/10/2020"
+date: "06/11/2020"
 output: html_document
 ---
 
-This is the Data Analysis collected from Prolific for the second version of the Experiment that brought back the distractor words towards the center and the number appears either at the top or bottom.
+This is the Data Analysis collected from Prolific for the second version of the Overshadowing Experiment where the distractor words are closer to the center and the number appears either at the top or bottom.
 
-The design looks like this. 
-
+The design looks like this.
 
 ![Design of the experiment.](D:/PhD/Experiments/Exp2 Overshadowing/ExpDocumentation/Exp2Design.jpg)
 
@@ -26,6 +25,7 @@ library(pander)
 library(rmarkdown)
 library(lme4)
 library(reshape2)
+library(Hmisc)
 
 #clearing environment
 rm(list = ls())
@@ -60,7 +60,7 @@ table(Saliency)
 detach(Exp2data)
 ```
 
-Cleaning data : removing unnecessaary columns, filling Screen background and block count to every cell, splitting the RT column and changed the units to ms and creating a column for Error Rate
+Cleaning data : removing unnecessaary columns, filling Screen background and block count to every cell, splitting the RT column and changed the units to ms and creating a column for Error Rate. Also creating another dataframe containing the Contingency AWareness(CA) trials and the AWareness questionnaire.
 
 ```{r cleaning, include=FALSE}
 
@@ -88,11 +88,6 @@ Exp2data <- Exp2data %>% group_by(participant)%>%fill(blocks.thisN,.direction = 
 
 Exp2data <- rename(Exp2data, c("blocks.thisN" = "BlockCount"))
 
-#creating a separate df with the contingency awareness
-Exp2_CA <- Exp2data %>%
-  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
-
-Exp2_CA <- Exp2_CA %>% group_by(participant)%>%fill(WordPair,.direction = "down")
 #adjusting RT
 Exp2data <- separate(Exp2data, col = ResponseKey.rt, into = c("RT_Trials", "RT_secondary"), sep = ',')
 Exp2data$RT_Trials <- Exp2data$RT_Trials%>%
@@ -106,11 +101,18 @@ Exp2data <- Exp2data%>%drop_na(RT_Trials)
 Exp2data$ACC_trials <- Exp2data$ResponseKey.corr
 Exp2data$ErrorRate <- 1 - Exp2data$ACC_trials
 
+
+###creating a separate df with the contingency awareness
+Exp2_CA <- Exp2data %>%
+  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
+
+Exp2_CA <- Exp2_CA %>% group_by(participant)%>%fill(WordPair,.direction = "down")
+
 ```
 
 ### Demographics
 
-Participants' Age and Gender
+
 
 ```{r demo, echo=FALSE}
 pander(summary(Exp2data$Age), style = 'rmarkdown', caption = "Mean Age of participants")
@@ -118,7 +120,7 @@ pander(summary(Exp2data$Age), style = 'rmarkdown', caption = "Mean Age of partic
 kable((table(Exp2data$Gender))/480, format = "html", caption = " Gender distribution")
 ```
 
-Summary of the overall RT
+
 
 ```{r descriptive, echo=FALSE}
 pander(summary(Exp2data$RT_Trials), style = 'rmarkdown',caption = 'Mean RT')
@@ -166,7 +168,6 @@ pander(summary(Exp2data$RT_io), style = 'rmarkdown', caption = "Summary of RT af
 
 There is a strong validity effect in all the trials where valid trials are faster than learn trials
 
-
 ```{r alltrials, echo = FALSE, warning=FALSE}
 Exp2agg <- aggregate(data = Exp2data,RT_ifo~participant+Validity+Condition,mean)
 
@@ -188,9 +189,10 @@ ezPlot(data = Exp2agg,
   ggtitle("Mean RT per condition for valid and invalid trials")
 ```
 
-Splitting the data as learn and test trials to analyze individually
+```{r splitting, include=FALSE}
 
-```{r}
+#Splitting the data as learn and test trials to analyze individually
+
 Exp2learn <- Exp2data %>%
   filter(Condition == "learn")
 
@@ -226,8 +228,6 @@ pander(t.test(RT_ifo~Validity, data = Exp2agg_l_fo, paired = TRUE), style = 'rma
 
 ```
 
-Plot showing the validity effect per participant in learn trials
-
 ```{r echo = FALSE}
 Exp2agg_l_fo_wide$participant <- as.factor(Exp2agg_l_fo_wide$participant)
 ggplot(data = Exp2agg_l_fo_wide, aes(x = participant, y = ValEffect))+
@@ -240,11 +240,11 @@ ggplot(data = Exp2agg_l_fo_wide, aes(x = participant, y = ValEffect))+
 
 Validity effect is p = 0.09, with a mean difference of 5.8s
 
-    ```{r learno, echo = FALSE}
+```{r learno, echo = FALSE}
 
     #aggregate
 Exp2agg_l_o <- aggregate(data = Exp2learn,RT_io~participant+Validity,mean)
-Exp2agg_l_o_wide <- spread(Exp2agg_l_o, Validity,RT_io)
+Exp2agg_l_o_wide <- spread(Exp2agg_l_o, Validity,RT_io)    
 Exp2agg_l_o_wide$ValEffect <- Exp2agg_l_o_wide$invalid - Exp2agg_l_o_wide$valid
 Exp2agg_l_o_wide$participant <- as.factor(Exp2agg_l_o_wide$participant)
 
@@ -257,7 +257,7 @@ ggplot(data = Exp2agg_l_o_wide, aes(x = participant, y = ValEffect))+
   theme_classic()+
   ggtitle("Validity Effect (invalid - valid) across learn trials(outliers excluded) in each participant")
 
-    ```
+```
 
 #### 3. Error Rate
 
@@ -277,7 +277,7 @@ pander(t.test(ErrorRate~Validity, data =Exp2agg_l_ER, paired = TRUE), style = 'r
 
 Almost significant validity effect = p.10. But no main effect of Saliency or interaction between saliency and validity.
 
-```{r testfo, echo = FALSE, warning = FALSE}
+```{r testfo, echo = FALSE, warning = FALSE, fig.height=3, fig.width=5}
 Exp2test <- Exp2test %>%
   select(Validity,Saliency,Condition,PositionD,PositionT,Distractor1,Distractor2,Screen_bg,everything())
 
@@ -301,16 +301,25 @@ ezPlot(data = Exp2agg_t_fo,
         split = Validity, x=Saliency, do_bars = FALSE)+
         theme_classic()+
         ylim(550,600)+
-        ggtitle("Mean RT for valid and invalid trials across saliency")
+        ggtitle("Mean RT for valid and \n invalid trials across saliency")
 ```
 
-
-```{r include =  FALSE}
+```{r echo =  FALSE, fig.height=7, fig.width=15}
 #converting to wide format 
-Exp2valeffect_tfo <- dcast(Exp2agg_t_fo, participant ~ Validity+Saliency, value.var = "RT_ifo")
-Exp2valeffect_tfo$ValNSalEffect <- Exp2valeffect_tfo$invalid_nonsalient - Exp2valeffect_tfo$valid_nonsalient
-Exp2valeffect_tfo$ValSalEffect <- Exp2valeffect_tfo$invalid_salient - Exp2valeffect_tfo$valid_salient
+Exp2valeffect_tfo <- spread(Exp2agg_t_fo,Validity,RT_ifo)
 
+Exp2valeffect_tfo$ValEffect <- Exp2valeffect_tfo$invalid - Exp2valeffect_tfo$valid
+
+#Effect across each participant
+Exp2valeffect_tfo$participant <- as.factor(Exp2valeffect_tfo$participant)
+
+ggplot(data = Exp2valeffect_tfo, aes(x = Saliency, y = ValEffect, fill = Saliency))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  facet_grid(.~participant)+
+  theme(axis.text.x = element_text(angle = 90), axis.text.x.bottom = element_blank())+
+  ylab("Validity Effect")+
+  ggtitle("Validity Effect (invalid - valid) across test trials(outliers excluded) in each participant")
 # boxplot(Exp2valeffect_tfo$ValSalEffect)
 # boxplot(Exp2valeffect_tfo$ValNSalEffect)
 
@@ -320,7 +329,7 @@ Exp2valeffect_tfo$ValSalEffect <- Exp2valeffect_tfo$invalid_salient - Exp2valeff
 
 Validity effect, p = 0.19 but main effect of saliency and interaction between saliency and validity are far from being significant
 
-```{r testo, echo = FALSE, warning = FALSE}
+```{r testo, echo = FALSE, warning = FALSE, fig.height=3, fig.width=5}
 Exp2agg_t_o <- aggregate(data = Exp2test,RT_io~participant+Validity+Saliency,mean)
 
 
@@ -337,16 +346,14 @@ ezPlot(data = Exp2agg_t_o,
         wid = participant,
         within = .(Saliency,Validity),
         split = Validity, x=Saliency, do_bars = FALSE)+
-  ylim(550,600)+theme_classic()+ggtitle("MEanRT(outleirs excluded) for valid and invalid trials across saliency")
+  ylim(550,600)+theme_classic()+ggtitle("MeanRT(outliers excluded) for valid \n and invalid trials across saliency")
 
 ```
 
-
-
-```{r echo = FALSE, fig.height=10, fig.width=15}
+```{r echo = FALSE, fig.height=7, fig.width=15}
 
 #Effect across each participant
-Exp2valeffect_to <- spread(Exp2agg_t_o, Validity, RT_io)
+Exp2wide_to <- dcast(data = Exp2agg_t_o, participant~Validity+Saliency, value.var =  "RT_io")
 Exp2valeffect_to$ValEffect <- Exp2valeffect_to$invalid - Exp2valeffect_to$valid
 Exp2valeffect_to$participant <- as.factor(Exp2valeffect_to$participant)
 
@@ -363,7 +370,7 @@ ggplot(data = Exp2valeffect_to, aes(x = Saliency, y = ValEffect, fill = Saliency
 
 No significant effect of ER
 
-```{r ert, echo = FALSE, warning = FALSE}
+```{r ert, include= FALSE, warning = FALSE}
 
 Exp2agg_t_ER <- aggregate(data = Exp2test,ErrorRate~participant+Validity+Saliency,mean)
 
@@ -382,18 +389,21 @@ pander(anova_t_ER, style = 'rmarkdown', caption = "ANOVA results: ErrorRates in 
 
 # Exploratory Analysis
 
-
 ## 1. Effect of screen background
 
-How the test trials look for each backgroun
-```{r}
+For the white background the responses are faster and behave as expected. Whereas, for the black background the responses are slower with a different kind of trend (almost like the opposite of the white background results)
+
+```{r bggraph, echo=FALSE, warning=FALSE}
 ggplot(Exp2test, aes(x = Saliency, y = RT_ifo, color = Validity))+
-  stat_summary(fun = mean, geom = "point")+
+  stat_summary(fun = mean, geom = "line", aes(group = Validity))+
   facet_grid(.~Screen_bg)+theme_classic()+ggtitle("RT across validity and Saliency for the different background colour")
 ```
 
-Spliting the data based on background
-```{r bg, echo=FALSE}
+White background shows a stronger validity effect compared to the black background although both are not significant.
+
+```{r bg, echo=FALSE, warning=FALSE}
+
+#Splitting the data into two datasets
 whitebg <-  Exp2test %>%
   subset(Screen_bg == "white")
 
@@ -428,15 +438,15 @@ pander(anova_bBG, style = "rmarkdown", caption = "ANOVA for black background")
 
 ## 2. Adding the factor of Position
 
-This analysis discusses the effect of salient word and the position of the number. Position Match variable indicates whether the salient word position and number appeared in the same place or not. Although this may not be of help because we brought the words closer together, I added this factor anyway to see how the data is.
+This analysis discusses the effect of salient word and the position of the number. Position Match variable indicates whether the salient word position and the target number, appeared in the same place or not. This is a possible test of saliency Manipulation
 
-
-## Analysis of learn trials - Position
+### Analysis of learn trials - Position
 
 #### 1. Farouts
 
-Significant main validity effect when position Match is factored in. 
-```{r learnp, echo=FALSE, warning=FALSE}
+Significant main validity effect when position Match is factored in.
+
+```{r learnp, echo=FALSE, warning=FALSE, fig.height=3, fig.width=5}
 
 
 #aggregate
@@ -458,15 +468,15 @@ ezPlot(data = Exp2agg_lp_fo,
         within = .(PositionMatch,Validity),
         split = Validity,x=PositionMatch, do_bars = FALSE)+
       theme_classic()+
-        ylim(550,600)+ggtitle("RTs when position match between salient word and number in learn trials (farouts excluded)")
+        ylim(550,600)+ggtitle("RTs when position match between salient word \n and number in learn trials (farouts excluded)")
 
 ```
 
-### 2. Outliers
+#### 2. Outliers
 
 Almost significant validity effect(p = .09) when PositionMatch of salient word and number is factored in the ANOVA
 
-```{r learnpo, echo = FALSE, warning = FALSE, message = FALSE}
+```{r learnpo, echo = FALSE, warning = FALSE, message = FALSE, fig.height=3, fig.width=5}
 Exp2agg_lp_o <- aggregate(data = Exp2learn,RT_io~participant+Validity+PositionMatch,mean)
 
 lp_anova_o <- ezANOVA(data = Exp2agg_lp_o,
@@ -484,15 +494,15 @@ ezPlot(data = Exp2agg_lp_o,
       within = .(Validity, PositionMatch),
       split = Validity, x=PositionMatch, do_bars = FALSE)+
       ylim(550,600)+
-      theme_classic()+ggtitle("RTs when position match between salient word and number in learn trials (outliers excluded)")
+      theme_classic()+ggtitle("RTs when position match between salient word \n and number in learn trials (outliers excluded)")
 
 ```
 
-### 3. Error Rate
+#### 3. Error Rate
 
+No significant ER
 
-
-```{r errorlp, echo = FALSE, warning = FALSE}
+```{r errorlp, include = FALSE, warning = FALSE}
 
 Exp2agg_lp_ER <- aggregate(data =Exp2learn,ErrorRate~participant+Validity+PositionMatch,mean)
 
@@ -506,11 +516,11 @@ pander(lp_anova_er,style = 'rmarkdown', caption = "ANOVA of error rate in learn 
 
 ```
 
-## Analysis of test trials - Position
+### Analysis of test trials - Position
 
-### 1. Farouts
+#### 1. Farouts
 
-Main effect of Validity when Position of Number is factored in is almost significant , p = .10 
+Main effect of Validity when Position of Number is factored in is almost significant , p = .10
 
 ```{r testpfo, echo=FALSE, warning = FALSE}
 
@@ -532,11 +542,11 @@ ezPlot(data = Exp2agg_tp_fo,
        split = Validity, x=Saliency, do_bars = FALSE)+
   ylim(550,600)+theme_classic()+
   facet_grid(~PositionT)+
-  ggtitle("Mean RT of valid and invalid trials across saliency for both positions of target")
+  ggtitle("Mean RT of valid and invalid trials \n across saliency for both positions of target")
 
 ```
 
-### 2. Outliers
+#### 2. Outliers
 
 Main effect of Validity and Position both have F values greater than 1, unlike the farouts
 
@@ -558,11 +568,11 @@ ezPlot(data = Exp2agg_tp_o,
     wid = participant,
     within = .(Validity, PositionT,Saliency),
     split = Validity, x=Saliency, do_bars = FALSE)+ylim(550,600)+theme_classic()+
-  facet_grid(~PositionT)+ggtitle("Mean RT of valid and invalid trials across saliency for both positions of target")
+  facet_grid(~PositionT)+ggtitle("Mean RT (Oultiers excluded) of valid and invalid trials \n across saliency for both positions of target")
 
 ```
 
-### 3. Error Rate
+#### 3. Error Rate
 
 No significant difference in Error Rate
 
@@ -586,6 +596,18 @@ pander(tp_anova_er,style = 'rmarkdown', caption = "ANOVA with error rate and pos
 ```
 
 ## Contingency Awareness Analysis
+
+The total accuracy in the Contingency AWareness(CA) trials for each participant is computed. They can score a maximum of 8. The replies to the questionnaire are also coded as follows:
+
+-   People who said yes to seeing a pattern with an even number
+
+-   People who said yes for seeing a pattern with an odd number
+
+-   Participants who said no for seeing a pattern for even responses
+
+-   Participants who said no for seeing a pattern for odd responses
+
+-   Total number of accurate responses for Word predictions
 
 ```{r CAadd , include = FALSE}
 #Words
@@ -615,21 +637,26 @@ CA_Summary <- Exp2_CA %>%
                    AccWordPrediction = sum(WordPrediction, na.rm = TRUE))
 
 CA_Summary$participant <- as.factor(CA_Summary$participant)
-table(CA_Summary$participant,CA_Summary$TotalAcc)
+
 ```
 
-```{r CAplots , include = FALSE}
+THe score for each participant is plotted to identify the ones who scored more than average.
+
+```{r CAplots , echo = FALSE}
 ggplot(CA_Summary, aes(x=participant, y = TotalAcc))+
   geom_bar(stat = "identity", fill = "darkslateblue")+
-  theme_classic()+ggtitle("Accuracy of Awareness trials per participants")
+  theme_classic()+
+  ggtitle("Accuracy of Awareness trials per participants")
 
-ppGuessaboveag <- c(14,16,25,26,31,32,33,34,38,43,42,47,49,51,53)
 ```
 
+### 1. ANOVA after selecting only participants who did better in CA trials
 
-### ANOVA after filtering out participants who did better in CA trials
+Strong validity effect along with a strong interaction between validity and Saliency
 
-```{r}
+```{r CA anova, echo=FALSE, warning=FALSE, fig.height=3, fig.width=5}
+ppGuessaboveag <- c(14,16,25,26,31,32,33,34,38,43,42,47,49,51,53)
+
 Exp2CAAboveAvg <- Exp2agg_t_fo %>%
   filter(participant%in%ppGuessaboveag)
 
@@ -646,20 +673,26 @@ ezPlot(data = Exp2CAAboveAvg,
                     wid = participant,
                     within = .(Saliency, Validity),
                     split = Validity, x = Saliency, do_bars = FALSE)+
-  ylim(500,600)+theme_classic()+ggtitle("Interaction between validity and saliency for participants who scored above average in CA trials")
+  ylim(500,600)+theme_classic()+ggtitle("Interaction between validity and saliency \n for participants who scored above average in CA trials")
+```
 
-library(Hmisc)
+### 2. ANOVA for participants who scored below average
+
+Marginal significance of Saliency x Validity interaction with a reversed pattern
+
+```{r CA blwANOVa, echo=FALSE, warning=FALSE, fig.height=3, fig.width=5}
+
 Exp2CAbelowAvg <- Exp2agg_t_fo %>%
   filter(participant%nin%ppGuessaboveag)
 
-is.na(Exp2CAbelowAvg)
+
 
 anova_nonCA <- ezANOVA(data = Exp2CAbelowAvg,
                     dv = RT_ifo,
                     wid = participant,
                     within = .(Saliency, Validity),
                     detailed = TRUE)
-pander(anova_nonCA)
+pander(anova_nonCA, style = "rmarkdown", caption = "ANOVA of RTs of participants who scored below average")
 
 
 ezPlot(data = Exp2CAbelowAvg,
@@ -668,7 +701,58 @@ ezPlot(data = Exp2CAbelowAvg,
                     within = .(Saliency, Validity),
                     split = Validity, x = Saliency, do_bars = FALSE)+
   ylim(550,610)+
-  theme_classic()+ggtitle("Interaction between validity and saliency for participants who scored below average in CA trials")
+  theme_classic()+ggtitle("Interaction between validity and saliency \n for participants who scored below average in CA trials")
 
 ```
+
+
+```{r}
+
+cor(CA_Summary$TotalAcc,CA_Summary$AccWordPrediction)
+
+ggplot(CA_Summary,aes(x=AccWordPrediction, y = TotalAcc))+
+  geom_point()+
+  geom_hline(lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction))
+
+plot(CA_Summary$TotalAcc,CA_Summary$AccWordPrediction,abline(lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction)))
+lm(CA_Summary$TotalAcc~CA_Summary$AccWordPrediction)
+
+plot(CA_Summary$AccWordPrediction,CA_Summary$TotalAcc) +abline(lm(TotalAcc~AccWordPrediction, data = CA_Summary))
+```
+```{r}
+Exp2CARTValSAL <- merge(Exp2wide_to,CA_Summary, by = "participant")
+Exp2CARTValSAL$CLNS <- Exp2CARTValSAL$invalid_nonsalient - Exp2CARTValSAL$valid_nonsalient
+Exp2CARTValSAL$CLS <- Exp2CARTValSAL$invalid_salient - Exp2CARTValSAL$valid_salient
+
+Exp2CARTValSAL$CLIn <- Exp2CARTValSAL$CLS - Exp2CARTValSAL$CLNS
+
+cor(Exp2CARTValSAL$CLIn, Exp2CARTValSAL$TotalAcc)
+
+plot(Exp2CARTValSAL$CLIn~Exp2CARTValSAL$TotalAcc)+
+abline(lm(Exp2CARTValSAL$CLIn~Exp2CARTValSAL$TotalAcc, data = Exp2CARTValSAL))
+
+
+
+Exp2wide_tfo <- dcast(data = Exp2agg_t_fo, participant~Validity+Saliency, value.var =  "RT_ifo")
+Exp2CARTValSALf <- merge(Exp2wide_tfo,CA_Summary, by = "participant")
+Exp2CARTValSALf$CLNS <- Exp2CARTValSALf$invalid_nonsalient - Exp2CARTValSALf$valid_nonsalient
+Exp2CARTValSALf$CLS <- Exp2CARTValSALf$invalid_salient - Exp2CARTValSALf$valid_salient
+
+Exp2CARTValSALf$CLIn <- Exp2CARTValSALf$CLS - Exp2CARTValSALf$CLNS
+
+cor(Exp2CARTValSALf$CLIn, Exp2CARTValSALf$TotalAcc)
+
+plot(Exp2CARTValSALf$CLIn~Exp2CARTValSALf$TotalAcc)+
+abline(lm(Exp2CARTValSALf$CLIn~Exp2CARTValSALf$TotalAcc, data = Exp2CARTValSALf))
+
+Exp2CARTValSALf$Valid <- (Exp2CARTValSALf$valid_nonsalient+Exp2CARTValSALf$valid_salient)/2
+Exp2CARTValSALf$inValid <- (Exp2CARTValSALf$invalid_nonsalient+Exp2CARTValSALf$invalid_salient)/2
+
+Exp2CARTValSALf$ValEff <- Exp2CARTValSALf$inValid - Exp2CARTValSALf$Valid
+
+cor(Exp2CARTValSALf$ValEff, Exp2CARTValSALf$TotalAcc)
+
+plot(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$TotalAcc)+abline(lm(Exp2CARTValSALf$ValEff~Exp2CARTValSALf$TotalAcc))
+```
+
 
