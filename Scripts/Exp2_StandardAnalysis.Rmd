@@ -1,5 +1,5 @@
 ---
-title: "Exp2_data"
+title: "Exp3_data"
 author: "Mrudula"
 date: "06/11/2020"
 output: html_document
@@ -96,17 +96,18 @@ Exp2data$RT_Trials <- Exp2data$RT_Trials%>%
 Exp2data$RT_Trials <- 1000*(Exp2data$RT_Trials)
 Exp2data$PreTargetDisplayTime <- 1000*(Exp2data$PreTargetDisplayTime)
 
+###creating a separate df with the contingency awareness
+Exp2_CA <- Exp2data %>%
+  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
+
+Exp2_CA <- Exp2_CA %>% group_by(participant)%>%fill(WordPair,.direction = "down")
+
 Exp2data <- Exp2data%>%drop_na(RT_Trials)
 
 Exp2data$ACC_trials <- Exp2data$ResponseKey.corr
 Exp2data$ErrorRate <- 1 - Exp2data$ACC_trials
 
 
-###creating a separate df with the contingency awareness
-Exp2_CA <- Exp2data %>%
-  filter(Condition == "ContChkTest" | str_detect(AwareQ, "mit"))
-
-Exp2_CA <- Exp2_CA %>% group_by(participant)%>%fill(WordPair,.direction = "down")
 
 ```
 
@@ -177,6 +178,7 @@ anova_agg <- ezANOVA(data = Exp2agg,
         wid = participant,
         within = .(Validity,Condition),
         detailed = TRUE)
+anova_out(anova_agg)
 panderOptions('table.split.table',300)
 pander(anova_agg, style = "rmarkdown", caption = "ANOVa table for all trials with validity and condition as factors",split.table = Inf, missing = NA)
 
@@ -291,6 +293,7 @@ anova_t_fo <- ezANOVA(data = Exp2agg_t_fo,
         within = .(Saliency,Validity),
         detailed = TRUE)
 
+anova_out(anova_t_fo)
 pander(anova_t_fo, style = 'rmarkdown', caption = "ANOVA results: Farouts excluded for test trials",split.table = "Inf", missing = NA)
 
 
@@ -339,6 +342,7 @@ anova_t_o <- ezANOVA(data = Exp2agg_t_o,
             wid = participant,
             within = .(Saliency,Validity),
             detailed = TRUE)
+anova_out(anova_t_o)
 pander(anova_t_o, style = 'rmarkdown', caption = "ANOVA results: Outliers excluded for test trials", split.table = "Inf", missing = NA)
  
 ezPlot(data = Exp2agg_t_o,
@@ -458,7 +462,7 @@ lp_anova <- ezANOVA(data = Exp2agg_lp_fo,
         wid = participant,
         within = .(Validity, PositionMatch),
         detailed = TRUE)
-
+anova_out(lp_anova)
 panderOptions('table.split.table',300)
 pander(lp_anova, style = 'rmarkdown',caption = "ANOVA with RTs , Validity and Position Match", split.table = "Inf", missing = NA)
 
@@ -533,6 +537,7 @@ tp_anova <- ezANOVA(data = Exp2agg_tp_fo,
         wid = participant,
         within = .(Validity, PositionT,Saliency),
         detailed = TRUE)
+anova_out(tp_anova)
 pander(tp_anova,style = 'rmarkdown', captions = "ANOVA with RTs(w/o farouts) with Position of Target and Validity", split.table = "Inf", missing = NA)
 
 ezPlot(data = Exp2agg_tp_fo,
@@ -673,6 +678,7 @@ anova_CA <- ezANOVA(data = Exp2CAAboveAvg,
                     within = .(Saliency, Validity),
                     detailed = TRUE)
 
+anova_out(anova_CA)
 pander(anova_CA, style = "rmarkdown", caption = "ANOVA of RTs of participants who scored above average")
 
 ezPlot(data = Exp2CAAboveAvg,
