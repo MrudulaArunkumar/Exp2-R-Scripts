@@ -253,7 +253,6 @@ Exp2agg_l_o_wide$participant <- as.factor(Exp2agg_l_o_wide$participant)
 
 pander(t.test(RT_io~Validity, data = Exp2agg_l_o, paired = TRUE), style = 'rmarkdown')
 
-
 ggplot(data = Exp2agg_l_o_wide, aes(x = participant, y = ValEffect))+
   geom_bar(stat = "identity", fill = "darkslateblue")+
   theme_classic()+
@@ -351,6 +350,15 @@ ezPlot(data = Exp2agg_t_o,
         within = .(Saliency,Validity),
         split = Validity, x=Saliency, do_bars = FALSE)+
   ylim(550,600)+theme_classic()+ggtitle("MeanRT(outliers excluded) for valid \n and invalid trials across saliency")
+
+
+interVS_outlier <- ggplot(Exp2agg_t_o, aes(x=Saliency, y=RT_io,color = Validity))+
+    geom_line(aes(group = Validity, linetype = Validity),size = 1,stat = "summary", fun = "mean",)+
+    geom_point(stat = "summary", fun = "mean", aes(shape = Validity))+coord_cartesian(ylim = c(550,600))+
+  scale_color_manual(values = c("deepskyblue4","cadetblue3"))+
+  theme_classic()+ylab("ReactionTime (in ms)")+ggtitle("Interaction of Validity and Saliency")
+
+ggsave(filename = here("Figures", "Interaction_out.png"), interVS_outlier)
 
 ```
 
